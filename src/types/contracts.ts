@@ -23,11 +23,19 @@ export interface UserPosition {
 }
 
 export interface OortNode {
-  id: number;
+  id: bigint; // Changed to bigint since we're using address as ID
   owner: string;
-  stakedAmount: bigint;
-  rewards: bigint;
+  stakedAmount: bigint; // Original pledge amount
+  rewards: bigint; // Total earned rewards
   isActive: boolean;
+  // Additional rich data from OORT contract
+  nodeAddress: string;
+  balance: bigint; // pledge + rewards (total asset value)
+  lockedRewards: bigint;
+  maxPledge: bigint;
+  endTime: number;
+  nodeType: number;
+  lockTime: number;
 }
 
 export interface TransactionState {

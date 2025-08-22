@@ -37,13 +37,22 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
   const initializeContracts = async (provider: BrowserProvider) => {
     try {
+      console.log('🔧 Initializing contracts...')
       const signer = await provider.getSigner()
       
       const nodeVault = new Contract(CONTRACT_ADDRESSES.NodeVaultUpgradeable, NODE_VAULT_ABI, signer)
       const woort = new Contract(CONTRACT_ADDRESSES.WOORT, WOORT_ABI, signer)
       const oortNode = new Contract(CONTRACT_ADDRESSES.OortNodeContract, OORT_NODE_ABI, signer)
 
+      console.log('✅ Contracts created:', {
+        nodeVault: !!nodeVault,
+        woort: !!woort,
+        oortNode: !!oortNode,
+        oortNodeAddress: CONTRACT_ADDRESSES.OortNodeContract
+      })
+
       setContracts({ nodeVault, woort, oortNode })
+      console.log('✅ Contracts set in state')
     } catch (error) {
       console.error('Error initializing contracts:', error)
     }

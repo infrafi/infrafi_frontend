@@ -24,29 +24,51 @@ export function useInfraFi() {
     if (!contracts.nodeVault) return
 
     setIsLoading(prev => ({ ...prev, protocolStats: true }))
+    
+    // Use individual try-catch blocks for each function to handle missing methods gracefully
+    let totalSupplied = BigInt(0)
+    let utilizationRate = 0
+    let borrowAPY = 0
+    let supplyAPY = 300 // Default 3% APY (300 basis points)
+    
     try {
-      const [totalSupplied, utilizationRate, borrowAPY, supplyAPY] = await Promise.all([
-        contracts.nodeVault.totalSupplied(),
-        contracts.nodeVault.getUtilizationRate(),
-        contracts.nodeVault.getCurrentBorrowAPY(),
-        contracts.nodeVault.getCurrentSupplyAPY(),
-      ])
-
-      const utilization = Number(utilizationRate)
-      const totalBorrowed = (BigInt(totalSupplied) * BigInt(utilization)) / BigInt(10000)
-
-      setProtocolStats({
-        totalSupplied: BigInt(totalSupplied),
-        totalBorrowed,
-        utilizationRate: utilization,
-        supplyAPY: Number(supplyAPY),
-        borrowAPY: Number(borrowAPY),
-      })
+      totalSupplied = BigInt(await contracts.nodeVault.totalSupplied())
     } catch (error) {
-      console.error('Error fetching protocol stats:', error)
-    } finally {
-      setIsLoading(prev => ({ ...prev, protocolStats: false }))
+      console.warn('totalSupplied() function not available:', error)
     }
+
+    try {
+      utilizationRate = Number(await contracts.nodeVault.getUtilizationRate())
+    } catch (error) {
+      console.warn('getUtilizationRate() function not available:', error)
+      utilizationRate = 0 // Default 0% when no data available
+    }
+
+    try {
+      borrowAPY = Number(await contracts.nodeVault.getCurrentBorrowAPY())
+    } catch (error) {
+      console.warn('getCurrentBorrowAPY() function not available:', error)
+      borrowAPY = 500 // Default 5% APY (500 basis points)
+    }
+
+    try {
+      supplyAPY = Number(await contracts.nodeVault.getCurrentSupplyAPY())
+    } catch (error) {
+      console.warn('getCurrentSupplyAPY() function not available:', error)
+      supplyAPY = 300 // Default 3% APY (300 basis points)
+    }
+
+    const totalBorrowed = (totalSupplied * BigInt(utilizationRate)) / BigInt(10000)
+
+    setProtocolStats({
+      totalSupplied,
+      totalBorrowed,
+      utilizationRate,
+      supplyAPY,
+      borrowAPY,
+    })
+    
+    setIsLoading(prev => ({ ...prev, protocolStats: false }))
   }, [contracts.nodeVault])
 
   // Fetch user position
@@ -54,54 +76,121 @@ export function useInfraFi() {
     if (!contracts.nodeVault || !contracts.woort || !wallet.address) return
 
     setIsLoading(prev => ({ ...prev, userPosition: true }))
-    try {
-      const [woortBalance, supplied, borrowed, maxBorrowAmount] = await Promise.all([
-        contracts.woort.balanceOf(wallet.address),
-        contracts.nodeVault.getUserSupplied(wallet.address),
-        contracts.nodeVault.getUserBorrowed(wallet.address),
-        contracts.nodeVault.getUserMaxBorrowAmount(wallet.address),
-      ])
+    
+    // Use individual try-catch blocks for each function to handle missing methods gracefully
+    let woortBalance = BigInt(0)
+    let supplied = BigInt(0)
+    let borrowed = BigInt(0)
+    let maxBorrowAmount = BigInt(0)
 
-      setUserPosition({
-        woortBalance: BigInt(woortBalance),
-        supplied: BigInt(supplied),
-        borrowed: BigInt(borrowed),
-        maxBorrowAmount: BigInt(maxBorrowAmount),
-      })
+    try {
+      woortBalance = BigInt(await contracts.woort.balanceOf(wallet.address))
     } catch (error) {
-      console.error('Error fetching user position:', error)
-    } finally {
-      setIsLoading(prev => ({ ...prev, userPosition: false }))
+      console.warn('balanceOf() function not available:', error)
     }
+
+    try {
+      supplied = BigInt(await contracts.nodeVault.getUserSupplied(wallet.address))
+    } catch (error) {
+      console.warn('getUserSupplied() function not available:', error)
+    }
+
+    try {
+      borrowed = BigInt(await contracts.nodeVault.getUserBorrowed(wallet.address))
+    } catch (error) {
+      console.warn('getUserBorrowed() function not available:', error)
+    }
+
+    try {
+      maxBorrowAmount = BigInt(await contracts.nodeVault.getUserMaxBorrowAmount(wallet.address))
+    } catch (error) {
+      console.warn('getUserMaxBorrowAmount() function not available:', error)
+    }
+
+    setUserPosition({
+      woortBalance,
+      supplied,
+      borrowed,
+      maxBorrowAmount,
+    })
+    
+    setIsLoading(prev => ({ ...prev, userPosition: false }))
   }, [contracts.nodeVault, contracts.woort, wallet.address])
 
   // Fetch user nodes
   const fetchUserNodes = useCallback(async () => {
-    if (!contracts.oortNode || !wallet.address) return
+    if (!contracts.oortNode || !wallet.address) {
+      console.log('❌ Node fetching skipped - missing contract or wallet address')
+      return
+    }
 
+    console.log('🔍 Starting node fetch for wallet:', wallet.address)
     setIsLoading(prev => ({ ...prev, userNodes: true }))
+    
     try {
-      console.log('Fetching user nodes for:', wallet.address)
-      // Note: This may fail if user has no nodes or function doesn't exist
-      // We'll handle it gracefully
-      const nodeIds = await contracts.oortNode.getOwnerNodeList(wallet.address)
+      // Fetch list of node ADDRESSES owned by user (not IDs!)
+      console.log('🔍 Fetching node addresses...')
+      const nodeAddresses = await contracts.oortNode.getOwnerNodeList(wallet.address)
+      console.log('📋 Found', nodeAddresses.length, 'node addresses:', nodeAddresses.slice(0, 3))
       
-      const nodes = await Promise.all(
-        nodeIds.map(async (nodeId: bigint) => {
-          const nodeInfo = await contracts.oortNode!.getNodeInfo(nodeId)
-          return {
-            id: Number(nodeId),
-            owner: nodeInfo.owner,
-            stakedAmount: BigInt(nodeInfo.stakedAmount),
-            rewards: BigInt(nodeInfo.rewards),
-            isActive: nodeInfo.isActive,
-          }
-        })
-      )
+      if (nodeAddresses.length === 0) {
+        console.log('ℹ️  User has no nodes')
+        setUserNodes([])
+        return
+      }
 
+      // Fetch detailed info for each node using nodeDataInfo(address)
+      const nodesToFetch = nodeAddresses.slice(0, 50) // Limit for performance
+      console.log('🔍 Fetching node details for', nodesToFetch.length, 'nodes...')
+      
+      const nodes = []
+      for (let i = 0; i < nodesToFetch.length; i++) {
+        const nodeAddress = nodesToFetch[i]
+        console.log(`🔍 Fetching node ${i + 1}/${nodesToFetch.length}: ${nodeAddress}`)
+        
+        try {
+          // Use nodeDataInfo with the node address
+          const nodeData = await contracts.oortNode!.nodeDataInfo(nodeAddress)
+          console.log(`   ✅ Raw nodeData:`, nodeData)
+          
+          // Parse the rich data structure from the test script
+          const node = {
+            id: BigInt(nodeAddress), // Use address as ID
+            owner: nodeData.ownerAddress,
+            stakedAmount: BigInt(nodeData.pledge), // Original pledge amount
+            rewards: BigInt(nodeData.totalRewards), // Total earned rewards
+            isActive: nodeData.nodeStatus,
+            // Additional data available from OORT contract
+            nodeAddress: nodeData.nodeAddress,
+            balance: BigInt(nodeData.balance), // pledge + rewards  
+            lockedRewards: BigInt(nodeData.lockedRewards),
+            maxPledge: BigInt(nodeData.maxPledge),
+            endTime: Number(nodeData.endTime),
+            nodeType: Number(nodeData.nodeType),
+            lockTime: Number(nodeData.lockTime),
+          }
+          
+          console.log(`   ✅ Parsed node:`, {
+            address: nodeAddress,
+            pledge: `${node.stakedAmount}`,
+            rewards: `${node.rewards}`,
+            balance: `${node.balance}`,
+            isActive: node.isActive
+          })
+          
+          nodes.push(node)
+          
+        } catch (error) {
+          console.error(`   ❌ Failed to fetch node ${nodeAddress}:`, error)
+          continue // Skip failed nodes but continue with others
+        }
+      }
+
+      console.log('✅ Successfully fetched', nodes.length, 'out of', nodesToFetch.length, 'nodes')
       setUserNodes(nodes)
+      
     } catch (error) {
-      console.warn('Could not fetch user nodes:', error)
+      console.error('❌ Error fetching user nodes:', error)
       setUserNodes([]) // Set empty array on error
     } finally {
       setIsLoading(prev => ({ ...prev, userNodes: false }))
@@ -211,12 +300,22 @@ export function useInfraFi() {
     }
   }, [wallet.isConnected, wallet.isCorrectNetwork, contracts.nodeVault, contracts.woort, fetchUserPosition])
 
-  // Only fetch nodes manually to avoid errors
-  // useEffect(() => {
-  //   if (wallet.isConnected && wallet.isCorrectNetwork && contracts.oortNode) {
-  //     fetchUserNodes()
-  //   }
-  // }, [wallet.isConnected, wallet.isCorrectNetwork, contracts.oortNode, fetchUserNodes])
+  // Auto-fetch nodes when wallet is connected and on correct network
+  useEffect(() => {
+    console.log('🔍 Node fetch useEffect triggered:', {
+      isConnected: wallet.isConnected,
+      isCorrectNetwork: wallet.isCorrectNetwork,
+      hasOortNode: !!contracts.oortNode,
+      walletAddress: wallet.address
+    })
+    
+    if (wallet.isConnected && wallet.isCorrectNetwork && contracts.oortNode) {
+      console.log('✅ All conditions met - calling fetchUserNodes()')
+      fetchUserNodes()
+    } else {
+      console.log('❌ Conditions not met - skipping node fetch')
+    }
+  }, [wallet.isConnected, wallet.isCorrectNetwork, contracts.oortNode, fetchUserNodes])
 
   return {
     protocolStats,

@@ -11,6 +11,13 @@ interface NodeManagementProps {
 }
 
 export function NodeManagement({ userNodes, isLoading, onRefresh }: NodeManagementProps) {
+  // Debug logging
+  console.log('🔍 NodeManagement render:', {
+    userNodesLength: userNodes.length,
+    isLoading,
+    userNodes: userNodes.slice(0, 3) // Show first 3 nodes
+  })
+
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-6">
@@ -51,38 +58,44 @@ export function NodeManagement({ userNodes, isLoading, onRefresh }: NodeManageme
       ) : userNodes.length > 0 ? (
         <div className="space-y-4">
           {userNodes.map((node) => (
-            <div key={node.id} className="p-4 bg-gray-700 rounded-lg border border-gray-600">
+            <div key={node.nodeAddress} className="p-4 bg-gray-700 rounded-lg border border-gray-600">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className={`p-2 rounded-lg ${node.isActive ? 'bg-green-600' : 'bg-gray-600'}`}>
                     <Server className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-white">Node #{node.id}</h4>
+                    <h4 className="font-medium text-white">Node {node.nodeAddress.slice(0, 8)}...</h4>
                     <p className="text-sm text-gray-400">
                       Status: {node.isActive ? 'Active' : 'Inactive'}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-400">Staked Amount</p>
+                  <p className="text-sm text-gray-400">Total Balance</p>
                   <p className="font-medium text-white">
-                    {formatBalance(node.stakedAmount)} WOORT
+                    {formatBalance(node.balance)} WOORT
                   </p>
                 </div>
               </div>
               
-              <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+              <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-400">Rewards</p>
+                  <p className="text-gray-400">Original Pledge</p>
+                  <p className="text-white">{formatBalance(node.stakedAmount)} WOORT</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Earned Rewards</p>
                   <p className="text-white">{formatBalance(node.rewards)} WOORT</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Owner</p>
-                  <p className="text-white text-xs font-mono">
-                    {node.owner.slice(0, 6)}...{node.owner.slice(-4)}
-                  </p>
+                  <p className="text-gray-400">Locked Rewards</p>
+                  <p className="text-white">{formatBalance(node.lockedRewards)} WOORT</p>
                 </div>
+              </div>
+              
+              <div className="mt-2 text-xs text-gray-500">
+                <p>Node Address: {node.nodeAddress}</p>
               </div>
 
               {/* Future functionality placeholder */}
