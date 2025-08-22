@@ -1,10 +1,10 @@
 // Contract addresses and configuration for InfraFi protocol
 export const CONTRACT_ADDRESSES = {
-  NodeVaultUpgradeable: '0x742d35cc6634c0532925A3b8d557A2aBC7f8C4C2',
+  NodeVaultUpgradeable: '0x02E999d822cAE0b41662e395762B819d46B91ABA',
   WOORT: '0xEAd29460881f38ADA079A38ac3D82E2D088930d9',
-  ProtocolAdapterRegistry: '0x031d35296154c60CAb3a9fC6f26E72975E3c4C19',
-  NodeProxyManager: '0xde3c9a7AD84f7aCFFCf6Dc2f4b9a1314D6f87FF2',
-  OortProtocolAdapter: '0x5c7fe1c31f6F7e0F2C9E4234b6F0e4B2f4B3b3b3',
+  ProtocolAdapterRegistry: '0x1C301BdCD6b22267Dee380D58840dFc219E03BF1',
+  NodeProxyManager: '0xca0d310D20E2Acd4cAed1ce7186998C8400Af55d',
+  OortProtocolAdapter: '0x64eB4C1e1d99Ef8294FFF110441c50d3edEd2492',
   OortNodeContract: '0xDE155823964816d6E67de8eA31DEf95D59aaE2Fb',
 } as const;
 
@@ -26,19 +26,28 @@ export const PROTOCOL_PARAMS = {
   },
 } as const;
 
-// Simplified ABIs - only the functions we need
+// Correct ABIs from the deployed contract (checked against NodeVaultUpgradeable.sol)
 export const NODE_VAULT_ABI = [
-  'function totalSupplied() external view returns (uint256)',
+  // Core statistics functions  
+  'function getTotalSupplied() external view returns (uint256)',
   'function getUtilizationRate() external view returns (uint256)',
   'function getCurrentBorrowAPY() external view returns (uint256)',
   'function getCurrentSupplyAPY() external view returns (uint256)',
+  
+  // User action functions
   'function supply(uint256 amount) external',
-  'function withdraw(uint256 amount) external',
+  'function withdraw(uint256 amount) external', 
   'function borrow(uint256 amount) external',
   'function repay(uint256 amount) external',
-  'function getUserSupplied(address user) external view returns (uint256)',
-  'function getUserBorrowed(address user) external view returns (uint256)',
-  'function getUserMaxBorrowAmount(address user) external view returns (uint256)',
+  
+  // User position functions (corrected names from contract)
+  'function getLenderPosition(address lender) external view returns (uint256 totalSupplied, uint256 accruedInterest, uint256 lastSupplyTime)',
+  'function getTotalBorrowed(address user) external view returns (uint256)',
+  'function getTotalDebt(address user) external view returns (uint256)',
+  'function getMaxBorrowAmount(address user) external view returns (uint256)',
+  
+  // Node functions
+  'function getNodeInfo(uint256 nodeId, uint256 nodeType) external view returns (uint256 nodeIdOut, uint256 nodeTypeOut, address depositor, uint256 depositTime, uint256 assetValue, address nodeProtocolContract, bool inVault)',
 ] as const;
 
 export const WOORT_ABI = [

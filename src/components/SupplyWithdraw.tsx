@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { UserPosition, ProtocolStats, TransactionState, TransactionFunction } from '@/types/contracts'
-import { formatBalance, formatAPY, validateAmount } from '@/lib/utils'
+import { formatBalance, formatAPY, validateAmount, bigIntToDecimal } from '@/lib/utils'
 import { Plus, Minus, AlertCircle } from 'lucide-react'
 
 interface SupplyWithdrawProps {
@@ -44,13 +44,13 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
 
   const setMaxSupply = () => {
     if (userPosition) {
-      setSupplyAmount(formatBalance(userPosition.woortBalance))
+      setSupplyAmount(bigIntToDecimal(userPosition.woortBalance))
     }
   }
 
   const setMaxWithdraw = () => {
     if (userPosition) {
-      setWithdrawAmount(formatBalance(userPosition.supplied))
+      setWithdrawAmount(bigIntToDecimal(userPosition.supplied))
     }
   }
 

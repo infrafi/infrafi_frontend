@@ -32,29 +32,33 @@ export function useInfraFi() {
     let supplyAPY = 300 // Default 3% APY (300 basis points)
     
     try {
-      totalSupplied = BigInt(await contracts.nodeVault.totalSupplied())
+      totalSupplied = BigInt(await contracts.nodeVault.getTotalSupplied())
+      console.log('✅ getTotalSupplied():', totalSupplied.toString())
     } catch (error) {
-      console.warn('totalSupplied() function not available:', error)
+      console.warn('getTotalSupplied() function failed:', error)
     }
 
     try {
       utilizationRate = Number(await contracts.nodeVault.getUtilizationRate())
+      console.log('✅ getUtilizationRate():', utilizationRate)
     } catch (error) {
-      console.warn('getUtilizationRate() function not available:', error)
+      console.warn('getUtilizationRate() function failed:', error)
       utilizationRate = 0 // Default 0% when no data available
     }
 
     try {
       borrowAPY = Number(await contracts.nodeVault.getCurrentBorrowAPY())
+      console.log('✅ getCurrentBorrowAPY():', borrowAPY)
     } catch (error) {
-      console.warn('getCurrentBorrowAPY() function not available:', error)
+      console.warn('getCurrentBorrowAPY() function failed:', error)
       borrowAPY = 500 // Default 5% APY (500 basis points)
     }
 
     try {
       supplyAPY = Number(await contracts.nodeVault.getCurrentSupplyAPY())
+      console.log('✅ getCurrentSupplyAPY():', supplyAPY)
     } catch (error) {
-      console.warn('getCurrentSupplyAPY() function not available:', error)
+      console.warn('getCurrentSupplyAPY() function failed:', error)
       supplyAPY = 300 // Default 3% APY (300 basis points)
     }
 
@@ -85,26 +89,32 @@ export function useInfraFi() {
 
     try {
       woortBalance = BigInt(await contracts.woort.balanceOf(wallet.address))
+      console.log('✅ WOORT balanceOf():', woortBalance.toString())
     } catch (error) {
-      console.warn('balanceOf() function not available:', error)
+      console.warn('WOORT balanceOf() function failed:', error)
     }
 
     try {
-      supplied = BigInt(await contracts.nodeVault.getUserSupplied(wallet.address))
+      // Use getLenderPosition to get user's supplied amount
+      const lenderPosition = await contracts.nodeVault.getLenderPosition(wallet.address)
+      supplied = BigInt(lenderPosition.totalSupplied || 0)
+      console.log('✅ getLenderPosition():', {totalSupplied: supplied.toString()})
     } catch (error) {
-      console.warn('getUserSupplied() function not available:', error)
+      console.warn('getLenderPosition() function failed:', error)
     }
 
     try {
-      borrowed = BigInt(await contracts.nodeVault.getUserBorrowed(wallet.address))
+      borrowed = BigInt(await contracts.nodeVault.getTotalBorrowed(wallet.address))
+      console.log('✅ getTotalBorrowed():', borrowed.toString())
     } catch (error) {
-      console.warn('getUserBorrowed() function not available:', error)
+      console.warn('getTotalBorrowed() function failed:', error)
     }
 
     try {
-      maxBorrowAmount = BigInt(await contracts.nodeVault.getUserMaxBorrowAmount(wallet.address))
+      maxBorrowAmount = BigInt(await contracts.nodeVault.getMaxBorrowAmount(wallet.address))
+      console.log('✅ getMaxBorrowAmount():', maxBorrowAmount.toString())
     } catch (error) {
-      console.warn('getUserMaxBorrowAmount() function not available:', error)
+      console.warn('getMaxBorrowAmount() function failed:', error)
     }
 
     setUserPosition({

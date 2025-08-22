@@ -27,6 +27,22 @@ export function formatBalance(value: bigint, decimals: number = 18): string {
   return whole.toString();
 }
 
+// Convert BigInt to plain decimal string (for input fields)
+export function bigIntToDecimal(value: bigint, decimals: number = 18): string {
+  const divisor = BigInt(10 ** decimals);
+  const whole = value / divisor;
+  const fraction = value % divisor;
+  
+  if (fraction === 0n) {
+    return whole.toString();
+  }
+  
+  const fractionStr = fraction.toString().padStart(decimals, '0');
+  const trimmedFraction = fractionStr.replace(/0+$/, '');
+  
+  return `${whole}.${trimmedFraction}`;
+}
+
 // Parse user input to BigInt
 export function parseBalance(value: string, decimals: number = 18): bigint {
   if (!value || value === '') return BigInt(0);
