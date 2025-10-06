@@ -11,12 +11,14 @@ export function useInfraFi() {
   const [protocolStats, setProtocolStats] = useState<ProtocolStats | null>(null)
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null)
   const [userNodes, setUserNodes] = useState<OortNode[]>([])
+  const [depositedNodes, setDepositedNodes] = useState<OortNode[]>([])
   const [txState, setTxState] = useState<TransactionState>({ isLoading: false, error: null })
   
   const [isLoading, setIsLoading] = useState({
     protocolStats: false,
     userPosition: false,
     userNodes: false,
+    depositedNodes: false,
   })
 
   // Fetch protocol statistics
@@ -27,6 +29,7 @@ export function useInfraFi() {
     
     // Use individual try-catch blocks for each function to handle missing methods gracefully
     let totalSupplied = BigInt(0)
+    let totalBorrowed = BigInt(0)
     let utilizationRate = 0
     let borrowAPY = 0
     let supplyAPY = 300 // Default 3% APY (300 basis points)
@@ -36,6 +39,15 @@ export function useInfraFi() {
       console.log('✅ getTotalSupplied():', totalSupplied.toString())
     } catch (error) {
       console.warn('getTotalSupplied() function failed:', error)
+    }
+
+    try {
+      // ✅ FIX: Get total debt directly from contract instead of calculating
+      totalBorrowed = BigInt(await contracts.nodeVault.getTotalDebt())
+      console.log('✅ getTotalDebt():', totalBorrowed.toString())
+    } catch (error) {
+      console.warn('getTotalDebt() function failed:', error)
+      totalBorrowed = BigInt(0)
     }
 
     try {
@@ -61,8 +73,6 @@ export function useInfraFi() {
       console.warn('getCurrentSupplyAPY() function failed:', error)
       supplyAPY = 300 // Default 3% APY (300 basis points)
     }
-
-    const totalBorrowed = (totalSupplied * BigInt(utilizationRate)) / BigInt(10000)
 
     setProtocolStats({
       totalSupplied,
@@ -104,10 +114,16 @@ export function useInfraFi() {
     }
 
     try {
-      borrowed = BigInt(await contracts.nodeVault.getTotalBorrowed(wallet.address))
-      console.log('✅ getTotalBorrowed():', borrowed.toString())
+      // Use getBorrowerPosition to get borrower info
+      const borrowerPosition = await contracts.nodeVault.getBorrowerPosition(wallet.address)
+      borrowed = BigInt(borrowerPosition.totalBorrowed || 0) + BigInt(borrowerPosition.accruedInterest || 0)
+      console.log('✅ getBorrowerPosition():', {
+        totalBorrowed: borrowerPosition.totalBorrowed.toString(),
+        accruedInterest: borrowerPosition.accruedInterest.toString(),
+        totalDebt: borrowed.toString()
+      })
     } catch (error) {
-      console.warn('getTotalBorrowed() function failed:', error)
+      console.warn('getBorrowerPosition() function failed:', error)
     }
 
     try {
@@ -207,6 +223,77 @@ export function useInfraFi() {
     }
   }, [contracts.oortNode, wallet.address])
 
+  const fetchDepositedNodes = useCallback(async () => {
+    if (!contracts.nodeVault || !contracts.oortNode || !wallet.address) {
+      console.log('⚠️  Missing dependencies for fetchDepositedNodes')
+      return
+    }
+
+    setIsLoading(prev => ({ ...prev, depositedNodes: true }))
+    
+    try {
+      console.log('🔍 Fetching deposited nodes for:', wallet.address)
+      
+      // Use getBorrowerPosition to get deposited nodes directly
+      console.log('📋 Getting borrower position with deposited nodes...')
+      
+      const borrowerPosition = await contracts.nodeVault.getBorrowerPosition(wallet.address)
+      const depositedNodeIdentifiers = borrowerPosition.depositedNodes
+      
+      console.log(`📊 Found ${depositedNodeIdentifiers.length} deposited node identifiers`)
+      
+      const depositedNodeDetails: OortNode[] = []
+      
+      // For each deposited node identifier, get the full node details
+      for (const nodeIdentifier of depositedNodeIdentifiers) {
+        try {
+          const nodeId = nodeIdentifier.nodeId
+          const nodeType = nodeIdentifier.nodeType
+          
+          console.log(`🔍 Processing deposited node: ${nodeId} (type: ${nodeType})`)
+          
+          // Convert nodeId back to address for OORT nodes (nodeId is the address as BigInt)
+          const nodeAddress = '0x' + nodeId.toString(16).padStart(40, '0')
+          
+          // Get detailed node information from OORT contract
+          const nodeData = await contracts.oortNode.nodeDataInfo(nodeAddress)
+          
+          const node: OortNode = {
+            id: nodeId,
+            owner: wallet.address,
+            stakedAmount: nodeData[0] || BigInt(0), // pledge
+            rewards: nodeData[1] || BigInt(0), // rewards
+            isActive: true,
+            // Rich data from nodeDataInfo
+            nodeAddress: nodeAddress,
+            balance: nodeData[2] || BigInt(0), // pledge + rewards
+            lockedRewards: nodeData[3] || BigInt(0),
+            maxPledge: nodeData[4] || BigInt(0),
+            endTime: Number(nodeData[5] || 0),
+            nodeType: Number(nodeData[6] || 1),
+            lockTime: Number(nodeData[7] || 0)
+          }
+          
+          depositedNodeDetails.push(node)
+          console.log(`✅ Successfully processed deposited node: ${nodeAddress}`)
+          
+        } catch (nodeError) {
+          console.log(`⚠️  Error processing deposited node:`, nodeError instanceof Error ? nodeError.message : String(nodeError))
+          // Continue with other nodes
+        }
+      }
+      
+      console.log(`🎉 Successfully fetched ${depositedNodeDetails.length} deposited nodes`)
+      setDepositedNodes(depositedNodeDetails)
+      
+    } catch (error) {
+      console.log('❌ Error fetching deposited nodes:', error)
+      setDepositedNodes([])
+    } finally {
+      setIsLoading(prev => ({ ...prev, depositedNodes: false }))
+    }
+  }, [contracts.nodeVault, contracts.oortNode, wallet.address])
+
   // Transaction functions
   const supply = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
@@ -297,6 +384,80 @@ export function useInfraFi() {
     setTxState({ isLoading: false, error: null })
   }
 
+  // Node deposit/withdraw functions
+  const depositNodes = async (nodeAddresses: string[]) => {
+    if (!contracts.nodeVault || !contracts.oortNode || !contracts.proxyManager || nodeAddresses.length === 0) return
+
+    setTxState({ isLoading: true, error: null })
+    try {
+      const OORT_PROTOCOL_TYPE = 1
+      
+      console.log('🔧 Step 1: Getting proxy for OORT protocol...')
+      // Get or create proxy for OORT protocol
+      let proxyAddress: string
+      const proxies = await contracts.proxyManager.getProtocolProxies(OORT_PROTOCOL_TYPE)
+      
+      if (proxies.length > 0) {
+        proxyAddress = proxies[0]
+        console.log('✅ Using existing proxy:', proxyAddress)
+      } else {
+        console.log('🔧 Creating new proxy...')
+        const tx = await contracts.proxyManager.getProxyForDeposit(OORT_PROTOCOL_TYPE)
+        await tx.wait()
+        
+        const updatedProxies = await contracts.proxyManager.getProtocolProxies(OORT_PROTOCOL_TYPE)
+        proxyAddress = updatedProxies[updatedProxies.length - 1]
+        console.log('✅ New proxy created:', proxyAddress)
+      }
+
+      console.log('🔄 Step 2: Transferring node ownership to proxy...')
+      // Transfer ownership to proxy
+      const transferTx = await contracts.oortNode.changeOwner(proxyAddress, nodeAddresses)
+      await transferTx.wait()
+      console.log('✅ Node ownership transferred')
+
+      console.log('🏦 Step 3: Depositing nodes as collateral...')
+      // Convert addresses to node IDs (use BigInt of address)
+      const nodeIds = nodeAddresses.map(addr => BigInt(addr))
+      
+      // ✅ NEW: No nodeTypes array needed (vault-level nodeType)
+      const depositTx = await contracts.nodeVault.depositNodes(nodeIds)
+      await depositTx.wait()
+      console.log('✅ Nodes deposited as collateral')
+      
+      // Refresh data
+      await Promise.all([fetchProtocolStats(), fetchUserPosition(), fetchUserNodes(), fetchDepositedNodes()])
+    } catch (error: any) {
+      console.error('❌ Node deposit failed:', error)
+      setTxState({ isLoading: false, error: error.message || 'Node deposit failed' })
+      return
+    }
+    
+    setTxState({ isLoading: false, error: null })
+  }
+
+  const withdrawNodes = async (nodeAddresses: string[]) => {
+    if (!contracts.nodeVault || nodeAddresses.length === 0) return
+
+    setTxState({ isLoading: true, error: null })
+    try {
+      // Convert addresses to node IDs
+      const nodeIds = nodeAddresses.map(addr => BigInt(addr))
+      
+      // ✅ NEW: No nodeTypes array needed (vault-level nodeType)
+      const tx = await contracts.nodeVault.withdrawNodes(nodeIds)
+      await tx.wait()
+      
+      // Refresh data
+      await Promise.all([fetchProtocolStats(), fetchUserPosition(), fetchUserNodes(), fetchDepositedNodes()])
+    } catch (error: any) {
+      setTxState({ isLoading: false, error: error.message || 'Node withdrawal failed' })
+      return
+    }
+    
+    setTxState({ isLoading: false, error: null })
+  }
+
   // Auto-fetch data when contracts are available
   useEffect(() => {
     if (contracts.nodeVault) {
@@ -327,10 +488,19 @@ export function useInfraFi() {
     }
   }, [wallet.isConnected, wallet.isCorrectNetwork, contracts.oortNode, fetchUserNodes])
 
+  // Auto-fetch deposited nodes when wallet is connected and on correct network
+  useEffect(() => {
+    if (wallet.isConnected && wallet.isCorrectNetwork && contracts.nodeVault && contracts.oortNode) {
+      console.log('✅ Fetching deposited nodes')
+      fetchDepositedNodes()
+    }
+  }, [wallet.isConnected, wallet.isCorrectNetwork, contracts.nodeVault, contracts.oortNode, fetchDepositedNodes])
+
   return {
     protocolStats,
     userPosition,
     userNodes,
+    depositedNodes,
     isLoading,
     txState,
     // Actions
@@ -338,9 +508,12 @@ export function useInfraFi() {
     withdraw,
     borrow,
     repay,
+    depositNodes,
+    withdrawNodes,
     // Manual refresh functions
     refreshProtocolStats: fetchProtocolStats,
     refreshUserPosition: fetchUserPosition,
     refreshUserNodes: fetchUserNodes,
+    refreshDepositedNodes: fetchDepositedNodes,
   }
 }

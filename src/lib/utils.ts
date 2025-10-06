@@ -5,16 +5,36 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Format BigInt values for display
-export function formatBalance(value: bigint, decimals: number = 18): string {
-  const divisor = BigInt(10 ** decimals);
-  const whole = value / divisor;
-  const fraction = value % divisor;
+// Format BigInt values for display (with robust type conversion)
+export function formatBalance(value: any, decimals: number = 18): string {
+  if (value === undefined || value === null) {
+    return "0";
+  }
   
-  if (whole >= 1000000) {
-    return `${(Number(whole) / 1000000).toFixed(2)}M`;
-  } else if (whole >= 1000) {
-    return `${(Number(whole) / 1000).toFixed(2)}K`;
+  let bigIntValue: bigint;
+  try {
+    if (typeof value === 'bigint') {
+      bigIntValue = value;
+    } else if (typeof value === 'string' || typeof value === 'number') {
+      bigIntValue = BigInt(value);
+    } else {
+      console.warn('formatBalance: Invalid value type', typeof value, value);
+      return "0";
+    }
+  } catch (error) {
+    console.warn('formatBalance: Failed to convert to BigInt', value, error);
+    return "0";
+  }
+
+  const divisor = BigInt(10 ** decimals);
+  const whole = bigIntValue / divisor;
+  const fraction = bigIntValue % divisor;
+  const wholeNum = Number(whole); // Convert for comparison with numbers
+  
+  if (wholeNum >= 1000000) {
+    return `${(wholeNum / 1000000).toFixed(2)}M`;
+  } else if (wholeNum >= 1000) {
+    return `${(wholeNum / 1000).toFixed(2)}K`;
   } else if (whole === 0n && fraction === 0n) {
     return "0";
   } else if (whole === 0n) {
@@ -28,10 +48,29 @@ export function formatBalance(value: bigint, decimals: number = 18): string {
 }
 
 // Convert BigInt to plain decimal string (for input fields)
-export function bigIntToDecimal(value: bigint, decimals: number = 18): string {
+export function bigIntToDecimal(value: any, decimals: number = 18): string {
+  if (value === undefined || value === null) {
+    return "0";
+  }
+  
+  let bigIntValue: bigint;
+  try {
+    if (typeof value === 'bigint') {
+      bigIntValue = value;
+    } else if (typeof value === 'string' || typeof value === 'number') {
+      bigIntValue = BigInt(value);
+    } else {
+      console.warn('bigIntToDecimal: Invalid value type', typeof value, value);
+      return "0";
+    }
+  } catch (error) {
+    console.warn('bigIntToDecimal: Failed to convert to BigInt', value, error);
+    return "0";
+  }
+
   const divisor = BigInt(10 ** decimals);
-  const whole = value / divisor;
-  const fraction = value % divisor;
+  const whole = bigIntValue / divisor;
+  const fraction = bigIntValue % divisor;
   
   if (fraction === 0n) {
     return whole.toString();
@@ -83,14 +122,26 @@ export function calculateHealthFactor(collateralValue: bigint, debtValue: bigint
 }
 
 // Validate amount input
-export function validateAmount(amount: string, maxAmount: bigint, decimals: number = 18): { isValid: boolean; error?: string } {
+export function validateAmount(amount: string, maxAmount: any, decimals: number = 18): { isValid: boolean; error?: string } {
   if (!amount || amount === '0') {
     return { isValid: false, error: 'Amount must be greater than 0' };
   }
   
   try {
     const parsedAmount = parseBalance(amount, decimals);
-    if (parsedAmount > maxAmount) {
+    
+    // Convert maxAmount to BigInt safely
+    let maxBigInt: bigint;
+    if (typeof maxAmount === 'bigint') {
+      maxBigInt = maxAmount;
+    } else if (typeof maxAmount === 'string' || typeof maxAmount === 'number') {
+      maxBigInt = BigInt(maxAmount);
+    } else {
+      console.warn('validateAmount: Invalid maxAmount type', typeof maxAmount, maxAmount);
+      return { isValid: false, error: 'Invalid maximum amount' };
+    }
+    
+    if (parsedAmount > maxBigInt) {
       return { isValid: false, error: 'Amount exceeds maximum' };
     }
     return { isValid: true };

@@ -7,6 +7,7 @@ import { SupplyWithdraw } from '@/components/SupplyWithdraw'
 import { BorrowRepay } from '@/components/BorrowRepay'
 import { UserPosition } from '@/components/UserPosition'
 import { NodeManagement } from '@/components/NodeManagement'
+import { RevenueSharing } from '@/components/RevenueSharing'
 
 export function Dashboard() {
   const { wallet } = useWeb3()
@@ -18,6 +19,11 @@ export function Dashboard() {
       <div>
         <h2 className="text-3xl font-bold text-white mb-6">Protocol Overview</h2>
         <ProtocolStats protocolStats={infraFi.protocolStats} isLoading={infraFi.isLoading.protocolStats} />
+      </div>
+
+      {/* Revenue Sharing Model */}
+      <div>
+        <RevenueSharing />
       </div>
 
       {/* User Dashboard */}
@@ -54,8 +60,16 @@ export function Dashboard() {
           <h2 className="text-3xl font-bold text-white mb-6">My Nodes</h2>
           <NodeManagement 
             userNodes={infraFi.userNodes}
-            isLoading={infraFi.isLoading.userNodes}
-            onRefresh={infraFi.refreshUserNodes}
+            depositedNodes={infraFi.depositedNodes}
+            isLoading={{
+              userNodes: infraFi.isLoading.userNodes,
+              depositedNodes: infraFi.isLoading.depositedNodes
+            }}
+            onRefreshNodes={infraFi.refreshUserNodes}
+            onRefreshDepositedNodes={infraFi.refreshDepositedNodes}
+            onDepositNodes={infraFi.depositNodes}
+            onWithdrawNodes={infraFi.withdrawNodes}
+            txState={infraFi.txState}
           />
         </div>
       )}

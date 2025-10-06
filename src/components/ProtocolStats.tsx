@@ -12,8 +12,8 @@ interface ProtocolStatsProps {
 export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="card animate-pulse">
             <div className="h-16 bg-gray-700 rounded"></div>
           </div>
@@ -23,7 +23,7 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
       {/* Total Supplied */}
       <div className="card">
         <div className="flex items-center space-x-3">
@@ -67,7 +67,23 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
             <p className="text-2xl font-bold text-white">
               {protocolStats ? formatAPY(protocolStats.supplyAPY) : '-.-%'}
             </p>
-            <p className="text-xs text-gray-500">Annual Rate</p>
+            <p className="text-xs text-gray-500">Lenders Earn</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Borrow APY */}
+      <div className="card">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-orange-600 rounded-lg">
+            <TrendingUp className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-400">Borrow APY</p>
+            <p className="text-2xl font-bold text-white">
+              {protocolStats ? formatAPY(protocolStats.borrowAPY) : '-.-%'}
+            </p>
+            <p className="text-xs text-gray-500">Borrowers Pay</p>
           </div>
         </div>
       </div>

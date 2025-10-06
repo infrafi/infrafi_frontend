@@ -2,13 +2,14 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { ethers, BrowserProvider, Contract } from 'ethers'
-import { CONTRACT_ADDRESSES, OORT_NETWORK, NODE_VAULT_ABI, WOORT_ABI, OORT_NODE_ABI } from '@/config/contracts'
+import { CONTRACT_ADDRESSES, OORT_NETWORK, NODE_VAULT_ABI, WOORT_ABI, OORT_NODE_ABI, NODE_PROXY_MANAGER_ABI } from '@/config/contracts'
 import { WalletState } from '@/types/contracts'
 
 interface ContractInstances {
   nodeVault: Contract | null
   woort: Contract | null
   oortNode: Contract | null
+  proxyManager: Contract | null
 }
 
 interface Web3ContextType {
@@ -33,6 +34,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     nodeVault: null,
     woort: null,
     oortNode: null,
+    proxyManager: null,
   })
 
   const initializeContracts = async (provider: BrowserProvider) => {
@@ -43,15 +45,17 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       const nodeVault = new Contract(CONTRACT_ADDRESSES.NodeVaultUpgradeable, NODE_VAULT_ABI, signer)
       const woort = new Contract(CONTRACT_ADDRESSES.WOORT, WOORT_ABI, signer)
       const oortNode = new Contract(CONTRACT_ADDRESSES.OortNodeContract, OORT_NODE_ABI, signer)
+      const proxyManager = new Contract(CONTRACT_ADDRESSES.NodeProxyManager, NODE_PROXY_MANAGER_ABI, signer)
 
       console.log('✅ Contracts created:', {
         nodeVault: !!nodeVault,
         woort: !!woort,
         oortNode: !!oortNode,
+        proxyManager: !!proxyManager,
         oortNodeAddress: CONTRACT_ADDRESSES.OortNodeContract
       })
 
-      setContracts({ nodeVault, woort, oortNode })
+      setContracts({ nodeVault, woort, oortNode, proxyManager })
       console.log('✅ Contracts set in state')
     } catch (error) {
       console.error('Error initializing contracts:', error)
@@ -99,6 +103,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       nodeVault: null,
       woort: null,
       oortNode: null,
+      proxyManager: null,
     })
   }
 
