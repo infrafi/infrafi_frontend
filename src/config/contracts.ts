@@ -18,8 +18,8 @@ export const OORT_NETWORK = {
 
 export const PROTOCOL_PARAMS = {
   // 🛡️ TESTNET DEPLOYMENT PARAMETERS - Current testnet configuration
-  maxLTVPercent: 80, // 80% max LTV (Testnet)
-  liquidationThreshold: 80, // 80% liquidation threshold
+  maxLTVPercent: 70, // 70% max LTV (Safe borrowing with 10% buffer)
+  liquidationThreshold: 80, // 80% liquidation threshold (hardcoded)
   interestRateModel: {
     baseRate: 300, // 3% base rate (in basis points)
     multiplier: 800, // 8% multiplier (in basis points)

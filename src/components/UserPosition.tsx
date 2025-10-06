@@ -23,7 +23,7 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
   }
 
   const healthFactor = userPosition 
-    ? calculateHealthFactor(userPosition.maxBorrowAmount, userPosition.borrowed)
+    ? calculateHealthFactor(userPosition.collateralValue, userPosition.borrowed, 80)
     : Infinity
 
   return (

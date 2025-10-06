@@ -36,15 +36,18 @@ export function formatBalance(value: any, decimals: number = 18): string {
   } else if (wholeNum >= 1000) {
     return `${(wholeNum / 1000).toFixed(2)}K`;
   } else if (whole === 0n && fraction === 0n) {
-    return "0";
+    return "0.00";
   } else if (whole === 0n) {
     const fractionStr = fraction.toString().padStart(decimals, '0');
     const significant = fractionStr.replace(/0+$/, '');
-    if (significant.length === 0) return "0";
-    return `0.${significant.slice(0, 6)}`;
+    if (significant.length === 0) return "0.00";
+    return `0.${significant.slice(0, 2)}`;
   }
   
-  return whole.toString();
+  // Format with 2 decimal places
+  const fractionStr = fraction.toString().padStart(decimals, '0');
+  const decimalPart = fractionStr.slice(0, 2);
+  return `${whole}.${decimalPart}`;
 }
 
 // Convert BigInt to plain decimal string (for input fields)
@@ -110,7 +113,7 @@ export function formatAPY(basisPoints: number): string {
 
 // Format utilization percentage
 export function formatUtilization(basisPoints: number): string {
-  return `${(basisPoints / 100).toFixed(1)}%`;
+  return `${(basisPoints / 100).toFixed(2)}%`;
 }
 
 // Calculate health factor

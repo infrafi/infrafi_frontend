@@ -133,11 +133,31 @@ export function useInfraFi() {
       console.warn('getMaxBorrowAmount() function failed:', error)
     }
 
+    // Calculate total collateral value from deposited nodes
+    let collateralValue = BigInt(0)
+    try {
+      const borrowerPosition = await contracts.nodeVault.getBorrowerPosition(wallet.address)
+      const OORT_PROTOCOL_TYPE = 1
+      
+      for (const nodeIdentifier of borrowerPosition.depositedNodes) {
+        try {
+          const nodeInfo = await contracts.nodeVault.getNodeInfo(nodeIdentifier.nodeId, OORT_PROTOCOL_TYPE)
+          collateralValue += BigInt(nodeInfo.assetValue || 0)
+        } catch (nodeError) {
+          console.warn('Failed to get node info for collateral calculation:', nodeError)
+        }
+      }
+      console.log('✅ Total Collateral Value:', collateralValue.toString())
+    } catch (error) {
+      console.warn('Failed to calculate collateral value:', error)
+    }
+
     setUserPosition({
       woortBalance,
       supplied,
       borrowed,
       maxBorrowAmount,
+      collateralValue,
     })
     
     setIsLoading(prev => ({ ...prev, userPosition: false }))

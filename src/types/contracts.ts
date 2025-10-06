@@ -20,6 +20,7 @@ export interface UserPosition {
   supplied: bigint;
   borrowed: bigint;
   maxBorrowAmount: bigint;
+  collateralValue: bigint;  // Total value of deposited nodes
 }
 
 export interface OortNode {
