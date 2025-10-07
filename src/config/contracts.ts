@@ -44,6 +44,10 @@ export const NODE_VAULT_ABI = [
   'function vaultNodeType() external view returns (uint256)',
   'function maxLTV() external view returns (uint256)',
   
+  // Public state variables for calculating borrowed principal
+  'function totalLent() external view returns (uint256)',
+  'function totalRepaid() external view returns (uint256)',
+  
   // User action functions
   'function supply(uint256 amount) external',
   'function withdraw(uint256 amount) external', 
