@@ -10,6 +10,8 @@ export interface WalletState {
 export interface ProtocolStats {
   totalSupplied: bigint;
   totalBorrowed: bigint;
+  totalBorrowInterest: bigint;  // Total interest accrued from borrowers
+  totalLenderInterest: bigint;  // Total interest available to lenders
   utilizationRate: number;
   supplyAPY: number;
   borrowAPY: number;
@@ -18,9 +20,12 @@ export interface ProtocolStats {
 export interface UserPosition {
   woortBalance: bigint;
   supplied: bigint;
+  supplyInterest: bigint;  // Accrued interest from lending
   borrowed: bigint;
+  borrowInterest: bigint;  // Accrued interest from borrowing
   maxBorrowAmount: bigint;
   collateralValue: bigint;  // Total value of deposited nodes
+  depositedNodesCount: number;  // Number of nodes deposited as collateral
 }
 
 export interface OortNode {

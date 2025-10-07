@@ -30,6 +30,8 @@ export function useInfraFi() {
     // Use individual try-catch blocks for each function to handle missing methods gracefully
     let totalSupplied = BigInt(0)
     let totalBorrowed = BigInt(0)
+    let totalBorrowInterest = BigInt(0)
+    let totalLenderInterest = BigInt(0)
     let utilizationRate = 0
     let borrowAPY = 0
     let supplyAPY = 300 // Default 3% APY (300 basis points)
@@ -42,12 +44,32 @@ export function useInfraFi() {
     }
 
     try {
-      // ✅ FIX: Get total debt directly from contract instead of calculating
-      totalBorrowed = BigInt(await contracts.nodeVault.getTotalDebt())
-      console.log('✅ getTotalDebt():', totalBorrowed.toString())
+      // Get total debt (principal + interest)
+      const totalDebt = BigInt(await contracts.nodeVault.getTotalDebt())
+      console.log('✅ getTotalDebt():', totalDebt.toString())
+      
+      // Get principal amounts
+      const totalLent = BigInt(await contracts.nodeVault.totalLent())
+      const totalRepaid = BigInt(await contracts.nodeVault.totalRepaid())
+      const principalDebt = totalLent - totalRepaid
+      
+      // Total borrowed (principal only)
+      totalBorrowed = principalDebt
+      
+      // Total interest = total debt - principal debt
+      totalBorrowInterest = totalDebt - principalDebt
+      totalLenderInterest = totalBorrowInterest // Lenders earn the interest borrowers pay
+      
+      console.log('✅ Calculated totals:', {
+        totalBorrowed: totalBorrowed.toString(),
+        totalBorrowInterest: totalBorrowInterest.toString(),
+        totalLenderInterest: totalLenderInterest.toString()
+      })
     } catch (error) {
-      console.warn('getTotalDebt() function failed:', error)
+      console.warn('getTotalDebt() or interest calculation failed:', error)
       totalBorrowed = BigInt(0)
+      totalBorrowInterest = BigInt(0)
+      totalLenderInterest = BigInt(0)
     }
 
     try {
@@ -77,6 +99,8 @@ export function useInfraFi() {
     setProtocolStats({
       totalSupplied,
       totalBorrowed,
+      totalBorrowInterest,
+      totalLenderInterest,
       utilizationRate,
       supplyAPY,
       borrowAPY,
@@ -94,7 +118,9 @@ export function useInfraFi() {
     // Use individual try-catch blocks for each function to handle missing methods gracefully
     let woortBalance = BigInt(0)
     let supplied = BigInt(0)
+    let supplyInterest = BigInt(0)
     let borrowed = BigInt(0)
+    let borrowInterest = BigInt(0)
     let maxBorrowAmount = BigInt(0)
 
     try {
@@ -108,7 +134,11 @@ export function useInfraFi() {
       // Use getLenderPosition to get user's supplied amount
       const lenderPosition = await contracts.nodeVault.getLenderPosition(wallet.address)
       supplied = BigInt(lenderPosition.totalSupplied || 0)
-      console.log('✅ getLenderPosition():', {totalSupplied: supplied.toString()})
+      supplyInterest = BigInt(lenderPosition.accruedInterest || 0)
+      console.log('✅ getLenderPosition():', {
+        totalSupplied: supplied.toString(),
+        accruedInterest: supplyInterest.toString()
+      })
     } catch (error) {
       console.warn('getLenderPosition() function failed:', error)
     }
@@ -116,10 +146,12 @@ export function useInfraFi() {
     try {
       // Use getBorrowerPosition to get borrower info
       const borrowerPosition = await contracts.nodeVault.getBorrowerPosition(wallet.address)
-      borrowed = BigInt(borrowerPosition.totalBorrowed || 0) + BigInt(borrowerPosition.accruedInterest || 0)
+      const totalBorrowed = BigInt(borrowerPosition.totalBorrowed || 0)
+      borrowInterest = BigInt(borrowerPosition.accruedInterest || 0)
+      borrowed = totalBorrowed + borrowInterest
       console.log('✅ getBorrowerPosition():', {
-        totalBorrowed: borrowerPosition.totalBorrowed.toString(),
-        accruedInterest: borrowerPosition.accruedInterest.toString(),
+        totalBorrowed: totalBorrowed.toString(),
+        accruedInterest: borrowInterest.toString(),
         totalDebt: borrowed.toString()
       })
     } catch (error) {
@@ -135,9 +167,12 @@ export function useInfraFi() {
 
     // Calculate total collateral value from deposited nodes
     let collateralValue = BigInt(0)
+    let depositedNodesCount = 0
     try {
       const borrowerPosition = await contracts.nodeVault.getBorrowerPosition(wallet.address)
       const OORT_PROTOCOL_TYPE = 1
+      
+      depositedNodesCount = borrowerPosition.depositedNodes.length
       
       for (const nodeIdentifier of borrowerPosition.depositedNodes) {
         try {
@@ -148,6 +183,7 @@ export function useInfraFi() {
         }
       }
       console.log('✅ Total Collateral Value:', collateralValue.toString())
+      console.log('✅ Deposited Nodes Count:', depositedNodesCount)
     } catch (error) {
       console.warn('Failed to calculate collateral value:', error)
     }
@@ -155,9 +191,12 @@ export function useInfraFi() {
     setUserPosition({
       woortBalance,
       supplied,
+      supplyInterest,
       borrowed,
+      borrowInterest,
       maxBorrowAmount,
       collateralValue,
+      depositedNodesCount,
     })
     
     setIsLoading(prev => ({ ...prev, userPosition: false }))

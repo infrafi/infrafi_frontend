@@ -35,7 +35,9 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
             <p className="text-2xl font-bold text-white">
               {protocolStats ? formatBalance(protocolStats.totalSupplied) : '0'}
             </p>
-            <p className="text-xs text-gray-500">WOORT</p>
+            <p className="text-xs text-gray-500">
+              Interest: {protocolStats ? formatBalance(protocolStats.totalLenderInterest) : '0'} WOORT
+            </p>
           </div>
         </div>
       </div>
@@ -51,7 +53,9 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
             <p className="text-2xl font-bold text-white">
               {protocolStats ? formatBalance(protocolStats.totalBorrowed) : '0'}
             </p>
-            <p className="text-xs text-gray-500">WOORT</p>
+            <p className="text-xs text-gray-500">
+              Interest: {protocolStats ? formatBalance(protocolStats.totalBorrowInterest) : '0'} WOORT
+            </p>
           </div>
         </div>
       </div>

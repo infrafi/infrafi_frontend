@@ -2,7 +2,7 @@
 
 import { UserPosition as UserPositionType } from '@/types/contracts'
 import { formatBalance, calculateHealthFactor } from '@/lib/utils'
-import { DollarSign, Wallet, CreditCard } from 'lucide-react'
+import { DollarSign, Wallet, CreditCard, Package } from 'lucide-react'
 
 interface UserPositionProps {
   userPosition: UserPositionType | null
@@ -12,8 +12,8 @@ interface UserPositionProps {
 export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
           <div key={i} className="card animate-pulse">
             <div className="h-16 bg-gray-700 rounded"></div>
           </div>
@@ -27,7 +27,7 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
     : Infinity
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {/* WOORT Balance */}
       <div className="card">
         <div className="flex items-center space-x-3">
@@ -55,7 +55,27 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
             <p className="text-2xl font-bold text-white">
               {userPosition ? formatBalance(userPosition.supplied) : '0'}
             </p>
-            <p className="text-xs text-gray-500">WOORT</p>
+            <p className="text-xs text-gray-500">
+              Interest: {userPosition ? formatBalance(userPosition.supplyInterest) : '0'} WOORT
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Deposited Nodes */}
+      <div className="card">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-indigo-600 rounded-lg">
+            <Package className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-400">Nodes Deposited</p>
+            <p className="text-2xl font-bold text-white">
+              {userPosition ? userPosition.depositedNodesCount : '0'}
+            </p>
+            <p className="text-xs text-gray-500">
+              Collateral: {userPosition ? formatBalance(userPosition.collateralValue) : '0'} WOORT
+            </p>
           </div>
         </div>
       </div>
@@ -72,7 +92,7 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
               {userPosition ? formatBalance(userPosition.borrowed) : '0'}
             </p>
             <p className="text-xs text-gray-500">
-              Health: {healthFactor === Infinity ? '∞' : healthFactor.toFixed(2)}
+              Interest: {userPosition ? formatBalance(userPosition.borrowInterest) : '0'} • Health: {healthFactor === Infinity ? '∞' : healthFactor.toFixed(2)}
             </p>
           </div>
         </div>
