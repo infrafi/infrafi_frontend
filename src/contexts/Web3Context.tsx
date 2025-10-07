@@ -37,9 +37,28 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     proxyManager: null,
   })
 
+  // Initialize read-only contracts (no wallet required)
+  const initializeReadOnlyContracts = async () => {
+    try {
+      console.log('🔧 Initializing read-only contracts...')
+      const provider = new ethers.JsonRpcProvider(OORT_NETWORK.rpcUrl)
+      
+      const nodeVault = new Contract(CONTRACT_ADDRESSES.NodeVaultUpgradeable, NODE_VAULT_ABI, provider)
+      const woort = new Contract(CONTRACT_ADDRESSES.WOORT, WOORT_ABI, provider)
+      const oortNode = new Contract(CONTRACT_ADDRESSES.OortNodeContract, OORT_NODE_ABI, provider)
+      const proxyManager = new Contract(CONTRACT_ADDRESSES.NodeProxyManager, NODE_PROXY_MANAGER_ABI, provider)
+
+      console.log('✅ Read-only contracts created')
+
+      setContracts({ nodeVault, woort, oortNode, proxyManager })
+    } catch (error) {
+      console.error('Error initializing read-only contracts:', error)
+    }
+  }
+
   const initializeContracts = async (provider: BrowserProvider) => {
     try {
-      console.log('🔧 Initializing contracts...')
+      console.log('🔧 Initializing contracts with signer...')
       const signer = await provider.getSigner()
       
       const nodeVault = new Contract(CONTRACT_ADDRESSES.NodeVaultUpgradeable, NODE_VAULT_ABI, signer)
@@ -47,7 +66,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       const oortNode = new Contract(CONTRACT_ADDRESSES.OortNodeContract, OORT_NODE_ABI, signer)
       const proxyManager = new Contract(CONTRACT_ADDRESSES.NodeProxyManager, NODE_PROXY_MANAGER_ABI, signer)
 
-      console.log('✅ Contracts created:', {
+      console.log('✅ Contracts created with signer:', {
         nodeVault: !!nodeVault,
         woort: !!woort,
         oortNode: !!oortNode,
@@ -99,12 +118,8 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       isCorrectNetwork: false,
       chainId: null,
     })
-    setContracts({
-      nodeVault: null,
-      woort: null,
-      oortNode: null,
-      proxyManager: null,
-    })
+    // Revert to read-only contracts so protocol data is still visible
+    initializeReadOnlyContracts()
   }
 
   const switchNetwork = async () => {
@@ -136,6 +151,11 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       }
     }
   }
+
+  // Initialize read-only contracts on mount (for viewing protocol data without wallet)
+  useEffect(() => {
+    initializeReadOnlyContracts()
+  }, [])
 
   // Auto-connect on page load
   useEffect(() => {
@@ -183,7 +203,8 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     }
 
     const handleChainChanged = () => {
-      connectWallet()
+      // Reload to ensure clean state
+      window.location.reload()
     }
 
     window.ethereum.on('accountsChanged', handleAccountsChanged)
