@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useDailySnapshots } from '@/hooks/useSubgraph'
+import { useDailySnapshots, useProtocolStats } from '@/hooks/useSubgraph'
 import { 
   formatTVLChartData, 
   formatAPYChartData, 
@@ -17,6 +17,7 @@ import { TrendingUp } from 'lucide-react'
 export function Analytics() {
   const [days, setDays] = useState(30)
   const { snapshots, isLoading, error } = useDailySnapshots(days)
+  const { protocolStats: currentProtocol } = useProtocolStats()
 
   if (error) {
     return (
@@ -38,8 +39,9 @@ export function Analytics() {
     )
   }
 
-  const tvlData = formatTVLChartData(snapshots)
-  const apyData = formatAPYChartData(snapshots)
+  // Format historical data and append current state
+  const tvlData = formatTVLChartData(snapshots, currentProtocol)
+  const apyData = formatAPYChartData(snapshots, currentProtocol)
   const activityData = formatActivityChartData(snapshots)
   const volumeData = formatVolumeChartData(snapshots)
 

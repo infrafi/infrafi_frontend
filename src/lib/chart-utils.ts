@@ -3,10 +3,25 @@ import { formatBalance } from './utils'
 /**
  * Format daily snapshots for TVL chart
  */
-export function formatTVLChartData(snapshots: any[]) {
-  if (!snapshots || snapshots.length === 0) return []
+export function formatTVLChartData(snapshots: any[], currentProtocol?: any) {
+  if (!snapshots || snapshots.length === 0) {
+    // If no historical data but we have current state, show current state only
+    if (currentProtocol) {
+      return [{
+        date: new Date().toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+        timestamp: Math.floor(Date.now() / 1000),
+        totalSupplied: Number(formatBalance(BigInt(currentProtocol.totalSupplied || '0'))),
+        totalBorrowed: Math.abs(Number(formatBalance(BigInt(currentProtocol.totalBorrowed || '0')))),
+        totalCollateral: Number(formatBalance(BigInt(currentProtocol.totalCollateralValue || '0'))),
+      }]
+    }
+    return []
+  }
   
-  return snapshots
+  const historicalData = snapshots
     .map((snapshot) => {
       try {
         return {
@@ -26,15 +41,49 @@ export function formatTVLChartData(snapshots: any[]) {
     })
     .filter((item) => item !== null)
     .reverse() // Oldest to newest for chart
+  
+  // Append current protocol state as the most recent data point
+  if (currentProtocol) {
+    const latestSnapshot = historicalData[historicalData.length - 1]
+    const now = Math.floor(Date.now() / 1000)
+    
+    // Only add current state if it's newer than the latest snapshot (different day)
+    if (!latestSnapshot || now - latestSnapshot.timestamp > 3600) { // More than 1 hour difference
+      historicalData.push({
+        date: 'Now',
+        timestamp: now,
+        totalSupplied: Number(formatBalance(BigInt(currentProtocol.totalSupplied || '0'))),
+        totalBorrowed: Math.abs(Number(formatBalance(BigInt(currentProtocol.totalBorrowed || '0')))),
+        totalCollateral: Number(formatBalance(BigInt(currentProtocol.totalCollateralValue || '0'))),
+      })
+    }
+  }
+  
+  return historicalData
 }
 
 /**
  * Format daily snapshots for APY chart
  */
-export function formatAPYChartData(snapshots: any[]) {
-  if (!snapshots || snapshots.length === 0) return []
+export function formatAPYChartData(snapshots: any[], currentProtocol?: any) {
+  if (!snapshots || snapshots.length === 0) {
+    // If no historical data but we have current state, show current state only
+    if (currentProtocol) {
+      return [{
+        date: new Date().toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+        timestamp: Math.floor(Date.now() / 1000),
+        supplyAPY: (currentProtocol.supplyAPY || 0) / 100,
+        borrowAPY: (currentProtocol.borrowAPY || 0) / 100,
+        utilization: (currentProtocol.utilizationRate || 0) / 100,
+      }]
+    }
+    return []
+  }
   
-  return snapshots
+  const historicalData = snapshots
     .map((snapshot) => {
       try {
         return {
@@ -54,6 +103,25 @@ export function formatAPYChartData(snapshots: any[]) {
     })
     .filter((item) => item !== null)
     .reverse()
+  
+  // Append current protocol state as the most recent data point
+  if (currentProtocol) {
+    const latestSnapshot = historicalData[historicalData.length - 1]
+    const now = Math.floor(Date.now() / 1000)
+    
+    // Only add current state if it's newer than the latest snapshot
+    if (!latestSnapshot || now - latestSnapshot.timestamp > 3600) {
+      historicalData.push({
+        date: 'Now',
+        timestamp: now,
+        supplyAPY: (currentProtocol.supplyAPY || 0) / 100,
+        borrowAPY: (currentProtocol.borrowAPY || 0) / 100,
+        utilization: (currentProtocol.utilizationRate || 0) / 100,
+      })
+    }
+  }
+  
+  return historicalData
 }
 
 /**
