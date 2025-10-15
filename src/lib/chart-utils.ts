@@ -86,12 +86,14 @@ export function formatAPYChartData(snapshots: any[], currentProtocol?: any) {
   const historicalData = snapshots
     .map((snapshot) => {
       try {
+        // Ensure timestamp is included for event marker matching
+        const timestamp = Number(snapshot.date || snapshot.timestamp || 0)
         return {
-          date: new Date(snapshot.date * 1000).toLocaleDateString('en-US', {
+          date: new Date(timestamp * 1000).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
           }),
-          timestamp: snapshot.date,
+          timestamp: timestamp,
           supplyAPY: (snapshot.supplyAPY || 0) / 100, // Convert basis points to percentage
           borrowAPY: (snapshot.borrowAPY || 0) / 100,
           utilization: (snapshot.utilizationRate || 0) / 100,
@@ -186,23 +188,77 @@ export function formatVolumeChartData(snapshots: any[]) {
 
 /**
  * Format interest rate snapshots for detailed APY chart
+ * @param snapshots Array of interest rate snapshots from subgraph
+ * @param startTime Optional unix timestamp to filter snapshots (only include data after this time)
  */
-export function formatInterestRateChartData(snapshots: any[]) {
-  return snapshots
-    .map((snapshot) => ({
-      date: new Date(snapshot.timestamp * 1000).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      timestamp: Number(snapshot.timestamp),
-      supplyAPY: snapshot.supplyAPY / 100,
-      borrowAPY: snapshot.borrowAPY / 100,
-      utilization: snapshot.utilizationRate / 100,
-      totalSupplied: Number(formatBalance(BigInt(snapshot.totalSupplied))),
-      totalBorrowed: Number(formatBalance(BigInt(snapshot.totalBorrowed))),
-    }))
-    .reverse()
+export function formatInterestRateChartData(snapshots: any[], startTime?: number) {
+  let filtered = snapshots
+  
+  // Filter by time range if provided
+  if (startTime) {
+    filtered = snapshots.filter(s => Number(s.timestamp) >= startTime)
+  }
+  
+  return filtered
+    .map((snapshot) => {
+      try {
+        return {
+          date: new Date(snapshot.timestamp * 1000).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          timestamp: Number(snapshot.timestamp),
+          supplyAPY: snapshot.supplyAPY / 100,
+          borrowAPY: snapshot.borrowAPY / 100,
+          utilization: snapshot.utilizationRate / 100,
+          totalSupplied: Number(formatBalance(BigInt(snapshot.totalSupplied))),
+          totalBorrowed: Number(formatBalance(BigInt(snapshot.totalBorrowed))),
+        }
+      } catch (error) {
+        console.error('Error formatting interest rate data:', error, snapshot)
+        return null
+      }
+    })
+    .filter((item) => item !== null)
+    .reverse() // Oldest to newest
+}
+
+/**
+ * Format interest rate snapshots for Index chart (borrow/supply indices)
+ * @param snapshots Array of interest rate snapshots from subgraph
+ * @param startTime Optional unix timestamp to filter snapshots (only include data after this time)
+ */
+export function formatIndexChartData(snapshots: any[], startTime?: number) {
+  let filtered = snapshots
+  
+  // Filter by time range if provided
+  if (startTime) {
+    filtered = snapshots.filter(s => Number(s.timestamp) >= startTime)
+  }
+  
+  return filtered
+    .map((snapshot) => {
+      try {
+        return {
+          date: new Date(snapshot.timestamp * 1000).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          timestamp: Number(snapshot.timestamp),
+          // Convert from 1e18 to decimal (e.g., 1.05e18 -> 1.05)
+          borrowIndex: Number(snapshot.borrowIndex) / 1e18,
+          supplyIndex: Number(snapshot.supplyIndex) / 1e18,
+        }
+      } catch (error) {
+        console.error('Error formatting index data:', error, snapshot)
+        return null
+      }
+    })
+    .filter((item) => item !== null)
+    .reverse() // Oldest to newest
 }
 

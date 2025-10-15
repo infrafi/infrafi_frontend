@@ -4,7 +4,8 @@ import {
   GET_USER_TIMELINE,
   GET_USER_POSITION,
   GET_DAILY_SNAPSHOTS,
-  GET_INTEREST_RATE_HISTORY
+  GET_INTEREST_RATE_HISTORY,
+  GET_EVENTS_IN_RANGE
 } from '@/lib/graphql-queries'
 
 /**
@@ -12,7 +13,7 @@ import {
  */
 export function useProtocolStats() {
   const { data, loading, error, refetch } = useQuery(GET_PROTOCOL_STATS, {
-    pollInterval: 30000, // Poll every 30 seconds
+    pollInterval: 60000, // Poll every 60 seconds (less aggressive)
   })
 
   return {
@@ -30,7 +31,7 @@ export function useUserTimeline(address: string | null) {
   const { data, loading, error, refetch } = useQuery(GET_USER_TIMELINE, {
     variables: { address: address?.toLowerCase() || '' },
     skip: !address,
-    pollInterval: 15000, // Poll every 15 seconds
+    // No polling - user timeline doesn't change frequently
   })
 
   const userData = (data as any)?.user
@@ -56,7 +57,7 @@ export function useUserPosition(address: string | null) {
   const { data, loading, error, refetch } = useQuery(GET_USER_POSITION, {
     variables: { address: address?.toLowerCase() || '' },
     skip: !address,
-    pollInterval: 15000,
+    // No polling - user can manually refresh if needed
   })
 
   return {
@@ -73,7 +74,7 @@ export function useUserPosition(address: string | null) {
 export function useDailySnapshots(days: number = 30) {
   const { data, loading, error, refetch } = useQuery(GET_DAILY_SNAPSHOTS, {
     variables: { days },
-    pollInterval: 60000, // Poll every minute
+    pollInterval: 120000, // Poll every 2 minutes (less aggressive)
   })
 
   return {
@@ -90,7 +91,7 @@ export function useDailySnapshots(days: number = 30) {
 export function useInterestRateHistory(first: number = 100) {
   const { data, loading, error, refetch } = useQuery(GET_INTEREST_RATE_HISTORY, {
     variables: { first },
-    pollInterval: 60000,
+    pollInterval: 120000, // Poll every 2 minutes (less aggressive)
   })
 
   return {
@@ -124,6 +125,31 @@ export function useUserData(address: string | null) {
       position.refetch()
       timeline.refetch()
     },
+  }
+}
+
+/**
+ * Hook to fetch all events within a time range for chart markers
+ */
+export function useEventsInRange(startTime: number) {
+  const { data, loading, error, refetch } = useQuery(GET_EVENTS_IN_RANGE, {
+    variables: { startTime, first: 1000 },
+    skip: !startTime,
+    pollInterval: 120000, // Poll every 2 minutes
+  })
+
+  return {
+    events: {
+      supplyEvents: (data as any)?.supplyEvents || [],
+      withdrawEvents: (data as any)?.withdrawEvents || [],
+      borrowEvents: (data as any)?.borrowEvents || [],
+      repayEvents: (data as any)?.repayEvents || [],
+      nodeDepositEvents: (data as any)?.nodeDepositEvents || [],
+      nodeWithdrawalEvents: (data as any)?.nodeWithdrawalEvents || [],
+    },
+    isLoading: loading,
+    error: error?.message || null,
+    refetch,
   }
 }
 

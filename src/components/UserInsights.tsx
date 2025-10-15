@@ -3,6 +3,7 @@
 import { useUserPosition } from '@/hooks/useSubgraph'
 import { formatBalance } from '@/lib/utils'
 import { TrendingUp, TrendingDown, DollarSign, Server, Calendar, Percent } from 'lucide-react'
+import { UserPerformanceChart } from './UserPerformanceChart'
 
 interface UserInsightsProps {
   address: string | null
@@ -62,6 +63,20 @@ export function UserInsights({ address }: UserInsightsProps) {
   const totalValue = BigInt(userPosition.totalSupplied) + BigInt(userPosition.collateralValue)
   const totalDebt = BigInt(userPosition.totalBorrowed) + BigInt(userPosition.totalBorrowInterest)
   const netWorth = totalValue - totalDebt
+
+  // Calculate effective APY based on time and interest
+  const calculateAPY = (interest: bigint, principal: bigint, days: number): string => {
+    if (principal === 0n || days === 0) return '0.00'
+    
+    // APY = (Interest / Principal) * (365 / Days) * 100
+    const interestRate = Number(interest) / Number(principal)
+    const annualized = interestRate * (365 / days) * 100
+    
+    return annualized.toFixed(8)
+  }
+
+  const supplyAPY = calculateAPY(totalInterestEarned, BigInt(userPosition.totalSupplied), daysSinceMember)
+  const borrowAPY = calculateAPY(totalInterestPaid, BigInt(userPosition.totalBorrowed), daysSinceMember)
 
   return (
     <div className="space-y-6">
@@ -168,6 +183,12 @@ export function UserInsights({ address }: UserInsightsProps) {
                 +{formatBalance(totalInterestEarned)} WOORT
               </span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-xs text-gray-400">Effective APY</span>
+              <span className="text-sm font-medium text-green-400">
+                {supplyAPY}%
+              </span>
+            </div>
             <div className="pt-2 border-t border-gray-700">
               <div className="flex justify-between">
                 <span className="text-xs font-semibold text-gray-300">Total Value</span>
@@ -193,6 +214,12 @@ export function UserInsights({ address }: UserInsightsProps) {
               <span className="text-xs text-gray-400">Interest Accrued</span>
               <span className="text-sm font-medium text-orange-400">
                 +{formatBalance(totalInterestPaid)} WOORT
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-xs text-gray-400">Effective APR</span>
+              <span className="text-sm font-medium text-orange-400">
+                {borrowAPY}%
               </span>
             </div>
             <div className="pt-2 border-t border-gray-700">
@@ -235,6 +262,9 @@ export function UserInsights({ address }: UserInsightsProps) {
           </div>
         </div>
       </div>
+
+      {/* Balance History Chart */}
+      <UserPerformanceChart address={address} />
     </div>
   )
 }

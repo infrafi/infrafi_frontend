@@ -159,6 +159,8 @@ export const GET_INTEREST_RATE_HISTORY = gql`
       supplyAPY
       borrowAPY
       utilizationRate
+      borrowIndex
+      supplyIndex
       totalSupplied
       totalBorrowed
       blockNumber
@@ -259,6 +261,106 @@ export const GET_TOP_BORROWERS = gql`
       totalBorrowInterest
       collateralValue
       depositedNodesCount
+    }
+  }
+`
+
+/**
+ * Query all events within a time range for chart markers
+ */
+export const GET_EVENTS_IN_RANGE = gql`
+  query GetEventsInRange($startTime: Int!, $first: Int = 1000) {
+    supplyEvents(
+      where: { timestamp_gte: $startTime }
+      first: $first
+      orderBy: timestamp
+      orderDirection: asc
+    ) {
+      id
+      user {
+        address
+      }
+      amount
+      timestamp
+      transactionHash
+    }
+    
+    withdrawEvents(
+      where: { timestamp_gte: $startTime }
+      first: $first
+      orderBy: timestamp
+      orderDirection: asc
+    ) {
+      id
+      user {
+        address
+      }
+      amount
+      timestamp
+      transactionHash
+    }
+    
+    borrowEvents(
+      where: { timestamp_gte: $startTime }
+      first: $first
+      orderBy: timestamp
+      orderDirection: asc
+    ) {
+      id
+      user {
+        address
+      }
+      amount
+      timestamp
+      transactionHash
+    }
+    
+    repayEvents(
+      where: { timestamp_gte: $startTime }
+      first: $first
+      orderBy: timestamp
+      orderDirection: asc
+    ) {
+      id
+      user {
+        address
+      }
+      amount
+      timestamp
+      transactionHash
+    }
+    
+    nodeDepositEvents(
+      where: { timestamp_gte: $startTime }
+      first: $first
+      orderBy: timestamp
+      orderDirection: asc
+    ) {
+      id
+      user {
+        address
+      }
+      nodeId
+      nodeType
+      assetValue
+      timestamp
+      transactionHash
+    }
+    
+    nodeWithdrawalEvents(
+      where: { timestamp_gte: $startTime }
+      first: $first
+      orderBy: timestamp
+      orderDirection: asc
+    ) {
+      id
+      user {
+        address
+      }
+      nodeId
+      nodeType
+      timestamp
+      transactionHash
     }
   }
 `

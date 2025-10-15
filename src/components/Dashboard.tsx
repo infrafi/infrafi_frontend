@@ -11,9 +11,10 @@ import { RevenueSharing } from '@/components/RevenueSharing'
 import { Analytics } from '@/components/Analytics'
 import { UserInsights } from '@/components/UserInsights'
 import { UserTimeline } from '@/components/UserTimeline'
+import { PerformanceAnalytics } from '@/components/PerformanceAnalytics'
 import { CollapsibleSection } from '@/components/CollapsibleSection'
 import { TabNavigation, TabId } from '@/components/TabNavigation'
-import { BarChart3, Share2, TrendingUp, User, Wallet, Server, Lightbulb, Clock, Building2, UserCircle } from 'lucide-react'
+import { BarChart3, Share2, TrendingUp, User, Wallet, Server, Lightbulb, Clock, Building2, UserCircle, Target } from 'lucide-react'
 
 export function Dashboard() {
   const { wallet, connectWallet } = useWeb3()
@@ -157,25 +158,35 @@ export function Dashboard() {
                     />
                   </CollapsibleSection>
 
-                  {/* User Insights */}
-                  <CollapsibleSection
-                    title="Your Insights"
-                    subtitle="Personal statistics and performance"
-                    icon={<Lightbulb className="w-6 h-6 text-white" />}
-                    defaultOpen={false}
-                  >
-                    <UserInsights address={wallet.address} />
-                  </CollapsibleSection>
+                          {/* User Insights */}
+                          <CollapsibleSection
+                            title="Your Insights"
+                            subtitle="Personal statistics and performance"
+                            icon={<Lightbulb className="w-6 h-6 text-white" />}
+                            defaultOpen={false}
+                          >
+                            <UserInsights address={wallet.address} />
+                          </CollapsibleSection>
 
-                  {/* User Timeline */}
-                  <CollapsibleSection
-                    title="Transaction History"
-                    subtitle="Complete activity timeline"
-                    icon={<Clock className="w-6 h-6 text-white" />}
-                    defaultOpen={false}
-                  >
-                    <UserTimeline address={wallet.address} />
-                  </CollapsibleSection>
+                          {/* Performance Analytics */}
+                          <CollapsibleSection
+                            title="Performance Analytics"
+                            subtitle="Detailed ROI, profit/loss, and strategy analysis"
+                            icon={<Target className="w-6 h-6 text-white" />}
+                            defaultOpen={false}
+                          >
+                            <PerformanceAnalytics address={wallet.address} />
+                          </CollapsibleSection>
+
+                          {/* User Timeline */}
+                          <CollapsibleSection
+                            title="Transaction History"
+                            subtitle="Complete activity timeline"
+                            icon={<Clock className="w-6 h-6 text-white" />}
+                            defaultOpen={false}
+                          >
+                            <UserTimeline address={wallet.address} />
+                          </CollapsibleSection>
                 </>
               )}
             </>

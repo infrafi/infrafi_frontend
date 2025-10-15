@@ -58,18 +58,15 @@ export function useInfraFi() {
       
       // Total interest = total debt - principal debt
       totalBorrowInterest = totalDebt - principalDebt
-      totalLenderInterest = totalBorrowInterest // Lenders earn the interest borrowers pay
       
       console.log('✅ Calculated totals:', {
         totalBorrowed: totalBorrowed.toString(),
         totalBorrowInterest: totalBorrowInterest.toString(),
-        totalLenderInterest: totalLenderInterest.toString()
       })
     } catch (error) {
       console.warn('getTotalDebt() or interest calculation failed:', error)
       totalBorrowed = BigInt(0)
       totalBorrowInterest = BigInt(0)
-      totalLenderInterest = BigInt(0)
     }
 
     try {
@@ -94,6 +91,39 @@ export function useInfraFi() {
     } catch (error) {
       console.warn('getCurrentSupplyAPY() function failed:', error)
       supplyAPY = 300 // Default 3% APY (300 basis points)
+    }
+
+    // NOW calculate total lender interest after we have all the required values
+    // Note: Contract doesn't track aggregate lender interest, so we calculate it
+    // based on the relationship: supplyAPY = borrowAPY × utilizationRate × (1 - reserveFactor)
+    try {
+      if (totalBorrowInterest > 0n && totalBorrowed > 0n && totalSupplied > 0n && borrowAPY > 0 && supplyAPY > 0) {
+        // Calculate the ratio of lender interest to borrow interest based on APYs
+        // totalLenderInterest ≈ totalBorrowInterest × (supplyAPY / borrowAPY) × (totalSupplied / totalBorrowed)
+        const apyRatio = BigInt(supplyAPY) * BigInt(10000) / BigInt(borrowAPY) // Scale by 10000 for precision
+        const supplyBorrowRatio = totalSupplied * BigInt(10000) / totalBorrowed
+        totalLenderInterest = (totalBorrowInterest * apyRatio * supplyBorrowRatio) / (BigInt(10000) * BigInt(10000))
+        
+        console.log('✅ Calculated total lender interest (formula):', {
+          totalLenderInterest: totalLenderInterest.toString(),
+          apyRatio: (supplyAPY / borrowAPY).toFixed(4),
+          supplyBorrowRatio: (Number(totalSupplied) / Number(totalBorrowed)).toFixed(4)
+        })
+      } else if (totalBorrowInterest > 0n) {
+        // Fallback: Lenders typically get 80-90% of borrower interest (reserve factor ~10-20%)
+        // Use utilization as a guide: higher utilization = higher lender share
+        const lenderShare = utilizationRate > 5000 ? 85n : 80n // 85% if >50% utilized, else 80%
+        totalLenderInterest = (totalBorrowInterest * lenderShare) / 100n
+        
+        console.log('✅ Calculated total lender interest (fallback):', {
+          totalLenderInterest: totalLenderInterest.toString(),
+          lenderShare: lenderShare.toString() + '%'
+        })
+      }
+    } catch (error) {
+      console.warn('Failed to calculate lender interest:', error)
+      // Final fallback: use 80% of borrow interest
+      totalLenderInterest = totalBorrowInterest > 0n ? (totalBorrowInterest * 80n) / 100n : 0n
     }
 
     setProtocolStats({

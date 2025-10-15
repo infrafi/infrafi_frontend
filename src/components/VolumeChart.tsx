@@ -44,7 +44,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               borderRadius: '0.5rem',
               color: '#F3F4F6'
             }}
-            formatter={(value: number) => [`${value.toFixed(2)} WOORT`, '']}
+            formatter={(value: number) => [`${value.toFixed(8)} WOORT`, '']}
           />
           <Legend 
             wrapperStyle={{ color: '#9CA3AF' }}

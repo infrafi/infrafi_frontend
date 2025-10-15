@@ -9,13 +9,28 @@ const httpLink = new HttpLink({
 
 export const apolloClient = new ApolloClient({
   link: httpLink,
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    // Define type policies to ensure stable references for arrays
+    typePolicies: {
+      User: {
+        // User entity uses 'address' as the primary key in the subgraph
+        keyFields: ['address'],
+      },
+      Protocol: {
+        keyFields: ['id'],
+      },
+    },
+  }),
   defaultOptions: {
     watchQuery: {
-      fetchPolicy: 'cache-and-network',
+      // Use cache-first to prevent unnecessary re-fetches
+      fetchPolicy: 'cache-first',
+      // Only refetch when explicitly requested or on reconnect
+      nextFetchPolicy: 'cache-first',
     },
     query: {
-      fetchPolicy: 'network-only',
+      // Use cache-first for initial queries to prevent infinite loops
+      fetchPolicy: 'cache-first',
       errorPolicy: 'all',
     },
   },

@@ -32,21 +32,21 @@ export function formatBalance(value: any, decimals: number = 18): string {
   const wholeNum = Number(whole); // Convert for comparison with numbers
   
   if (wholeNum >= 1000000) {
-    return `${(wholeNum / 1000000).toFixed(2)}M`;
+    return `${(wholeNum / 1000000).toFixed(8)}M`;
   } else if (wholeNum >= 1000) {
-    return `${(wholeNum / 1000).toFixed(2)}K`;
+    return `${(wholeNum / 1000).toFixed(8)}K`;
   } else if (whole === 0n && fraction === 0n) {
-    return "0.00";
+    return "0.00000000";
   } else if (whole === 0n) {
     const fractionStr = fraction.toString().padStart(decimals, '0');
     const significant = fractionStr.replace(/0+$/, '');
-    if (significant.length === 0) return "0.00";
-    return `0.${significant.slice(0, 2)}`;
+    if (significant.length === 0) return "0.00000000";
+    return `0.${significant.slice(0, 8)}`;
   }
   
-  // Format with 2 decimal places
+  // Format with 8 decimal places for testing precision
   const fractionStr = fraction.toString().padStart(decimals, '0');
-  const decimalPart = fractionStr.slice(0, 2);
+  const decimalPart = fractionStr.slice(0, 8);
   return `${whole}.${decimalPart}`;
 }
 
@@ -108,12 +108,12 @@ export function parseBalance(value: string, decimals: number = 18): bigint {
 
 // Format APY percentage
 export function formatAPY(basisPoints: number): string {
-  return `${(basisPoints / 100).toFixed(2)}%`;
+  return `${(basisPoints / 100).toFixed(8)}%`;
 }
 
 // Format utilization percentage
 export function formatUtilization(basisPoints: number): string {
-  return `${(basisPoints / 100).toFixed(2)}%`;
+  return `${(basisPoints / 100).toFixed(8)}%`;
 }
 
 // Calculate health factor

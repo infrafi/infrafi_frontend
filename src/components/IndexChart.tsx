@@ -13,13 +13,12 @@ interface EventMarker {
   yValue: number  // Y-axis position for the marker
 }
 
-interface APYChartProps {
+interface IndexChartProps {
   data: Array<{
     date: string
     timestamp?: number
-    supplyAPY: number
-    borrowAPY: number
-    utilization: number
+    borrowIndex: number
+    supplyIndex: number
   }>
   events?: {
     supplyEvents: any[]
@@ -31,7 +30,7 @@ interface APYChartProps {
   }
 }
 
-export function APYChart({ data, events }: APYChartProps) {
+export function IndexChart({ data, events }: IndexChartProps) {
   const [showEventLabels, setShowEventLabels] = useState(true)
   const [timeFrame, setTimeFrame] = useState<'1h' | '6h' | '24h' | '7d' | '30d' | 'all'>('7d')
 
@@ -62,7 +61,7 @@ export function APYChart({ data, events }: APYChartProps) {
   
   if (events && filteredData.length > 0) {
     // Debug logging
-    console.log('📊 APY Chart - Event Data:', {
+    console.log('📊 Index Chart - Event Data:', {
       supplyEvents: events.supplyEvents?.length || 0,
       withdrawEvents: events.withdrawEvents?.length || 0,
       borrowEvents: events.borrowEvents?.length || 0,
@@ -76,8 +75,8 @@ export function APYChart({ data, events }: APYChartProps) {
         : 'Unknown'
     })
 
-    // Get max utilization for positioning markers at the top
-    const maxY = Math.max(...filteredData.map(d => Math.max(d.supplyAPY, d.borrowAPY, d.utilization))) * 0.95
+    // Get max index for positioning markers at the top
+    const maxY = Math.max(...filteredData.map(d => Math.max(d.borrowIndex, d.supplyIndex))) * 0.98
 
     // Helper to create markers with smart matching
     const createMarkers = (eventList: any[], type: EventMarker['type']) => {
@@ -88,7 +87,6 @@ export function APYChart({ data, events }: APYChartProps) {
         const timestamp = Number(event.timestamp)
         
         // Try to find the closest data point within a reasonable time window
-        // Sort by distance and pick the closest one within 12 hours
         const MAX_TIME_DIFF = 12 * 3600 // 12 hours in seconds
         
         let closestPoint: any = null
@@ -117,14 +115,11 @@ export function APYChart({ data, events }: APYChartProps) {
           })
         } else {
           unmatched++
-          if (unmatched <= 3) { // Only log first 3 to avoid console spam
-            console.log(`⚠️ Unmatched ${type} event at timestamp ${timestamp} (${new Date(timestamp * 1000).toISOString()})`)
-          }
         }
       })
       
       if (matched > 0 || unmatched > 0) {
-        console.log(`📍 ${type}: ${matched} matched, ${unmatched > 3 ? `${unmatched} (showing first 3)` : unmatched} unmatched`)
+        console.log(`📍 ${type}: ${matched} matched, ${unmatched} unmatched`)
       }
     }
 
@@ -159,11 +154,10 @@ export function APYChart({ data, events }: APYChartProps) {
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl">
         <p className="text-sm font-semibold text-white mb-2">{label}</p>
         
-        {/* APY Data */}
+        {/* Index Data */}
         <div className="space-y-1 mb-2">
-          <p className="text-xs text-green-400">Supply APY: {dataPoint.supplyAPY?.toFixed(2)}%</p>
-          <p className="text-xs text-orange-400">Borrow APY: {dataPoint.borrowAPY?.toFixed(2)}%</p>
-          <p className="text-xs text-purple-400">Utilization: {dataPoint.utilization?.toFixed(2)}%</p>
+          <p className="text-xs text-orange-400">Borrow Index: {dataPoint.borrowIndex?.toFixed(6)}</p>
+          <p className="text-xs text-green-400">Supply Index: {dataPoint.supplyIndex?.toFixed(6)}</p>
         </div>
 
         {/* Event Markers */}
@@ -212,7 +206,7 @@ export function APYChart({ data, events }: APYChartProps) {
     <div className="bg-gray-800 p-6 rounded-lg">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center space-x-4">
-          <h3 className="text-xl font-bold text-white">Interest Rates History</h3>
+          <h3 className="text-xl font-bold text-white">Index History</h3>
           
           {/* Time Frame Selector */}
           <div className="flex items-center space-x-1 bg-gray-900/50 rounded-lg p-1">
@@ -334,7 +328,7 @@ export function APYChart({ data, events }: APYChartProps) {
           <YAxis 
             stroke="#9CA3AF"
             style={{ fontSize: '12px' }}
-            tickFormatter={(value) => `${value.toFixed(1)}%`}
+            tickFormatter={(value) => value.toFixed(2)}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend 
@@ -342,26 +336,18 @@ export function APYChart({ data, events }: APYChartProps) {
           />
           <Line 
             type="monotone" 
-            dataKey="supplyAPY" 
+            dataKey="supplyIndex" 
             stroke="#10B981" 
             strokeWidth={2}
-            name="Supply APY"
+            name="Supply Index"
             dot={false}
           />
           <Line 
             type="monotone" 
-            dataKey="borrowAPY" 
+            dataKey="borrowIndex" 
             stroke="#F97316" 
             strokeWidth={2}
-            name="Borrow APY"
-            dot={false}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="utilization" 
-            stroke="#8B5CF6" 
-            strokeWidth={2}
-            name="Utilization Rate"
+            name="Borrow Index"
             dot={false}
           />
 
@@ -383,4 +369,5 @@ export function APYChart({ data, events }: APYChartProps) {
     </div>
   )
 }
+
 
