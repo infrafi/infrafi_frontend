@@ -61,6 +61,9 @@ export function IndexChart({ data, events }: IndexChartProps) {
   
   if (events && filteredData.length > 0) {
     // Debug logging
+    const firstTimestamp = filteredData[0]?.timestamp
+    const lastTimestamp = filteredData[filteredData.length - 1]?.timestamp
+    
     console.log('📊 Index Chart - Event Data:', {
       supplyEvents: events.supplyEvents?.length || 0,
       withdrawEvents: events.withdrawEvents?.length || 0,
@@ -70,8 +73,8 @@ export function IndexChart({ data, events }: IndexChartProps) {
       nodeWithdrawalEvents: events.nodeWithdrawalEvents?.length || 0,
       chartDataPoints: filteredData.length,
       timeFrame: timeFrame,
-      timeRange: filteredData[0]?.timestamp && filteredData[filteredData.length - 1]?.timestamp 
-        ? `${new Date(filteredData[0].timestamp * 1000).toISOString()} to ${new Date(filteredData[filteredData.length - 1].timestamp * 1000).toISOString()}`
+      timeRange: firstTimestamp && lastTimestamp
+        ? `${new Date(firstTimestamp * 1000).toISOString()} to ${new Date(lastTimestamp * 1000).toISOString()}`
         : 'Unknown'
     })
 

@@ -73,8 +73,8 @@ export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
 
   // Activity metrics
   const totalTransactions = supplyEvents.length + withdrawEvents.length + borrowEvents.length + repayEvents.length
-  const totalSupplyVolume = supplyEvents.reduce((sum, e: any) => sum + BigInt(e.amount || 0), 0n)
-  const totalBorrowVolume = borrowEvents.reduce((sum, e: any) => sum + BigInt(e.amount || 0), 0n)
+  const totalSupplyVolume = supplyEvents.reduce((sum: bigint, e: any) => sum + BigInt(e.amount || 0), 0n)
+  const totalBorrowVolume = borrowEvents.reduce((sum: bigint, e: any) => sum + BigInt(e.amount || 0), 0n)
 
   // Determine user strategy
   const getStrategyType = () => {
