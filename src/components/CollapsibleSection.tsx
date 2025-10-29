@@ -57,8 +57,10 @@ export function CollapsibleSection({
 
       {/* Collapsible content with smooth animation */}
       <div
-        className={`overflow-visible transition-all duration-300 ease-in-out ${
-          isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0'
+        className={`transition-all duration-300 ease-in-out ${
+          isOpen 
+            ? 'max-h-[10000px] opacity-100 pointer-events-auto overflow-visible' 
+            : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'
         }`}
       >
         <div className={isOpen ? 'animate-fadeIn' : ''}>

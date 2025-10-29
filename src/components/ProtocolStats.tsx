@@ -32,11 +32,11 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <p className="text-sm font-medium text-gray-400">Total Liquidity</p>
+              <p className="text-sm font-medium text-gray-400">Available Liquidity</p>
               <div className="group relative">
                 <Info className="w-4 h-4 text-gray-500 hover:text-gray-300 cursor-help" />
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-gray-700">
-                  Total tokens supplied by lenders plus repaid interest from borrowers
+                  Available liquidity = total supplied minus borrowed tokens plus repaid interest
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
@@ -60,7 +60,7 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
               <div className="group relative">
                 <Info className="w-4 h-4 text-gray-500 hover:text-gray-300 cursor-help" />
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-gray-700">
-                  Total outstanding debt including accrued interest
+                  Total debt = total borrowed tokens plus non-repaid interests
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>

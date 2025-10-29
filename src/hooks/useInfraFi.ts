@@ -67,7 +67,8 @@ export function useInfraFi() {
           totalBorrowInterest: totalBorrowInterest.toString(),
         })
       } catch (principalError) {
-        console.warn('Principal calculation failed, using totalDebt only:', principalError.message)
+        const errorMessage = principalError instanceof Error ? principalError.message : String(principalError)
+        console.warn('Principal calculation failed, using totalDebt only:', errorMessage)
         // If principal calculation fails, we still have totalDebt
         // Set reasonable defaults for interest calculation
         totalBorrowed = totalDebt // Assume most debt is principal
