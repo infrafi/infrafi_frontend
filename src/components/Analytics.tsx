@@ -65,8 +65,8 @@ export function Analytics() {
   // Format index chart data (borrow/supply indices)
   const indexData = formatIndexChartData(rateSnapshots, startTime)
   
-  const activityData = formatActivityChartData(snapshots)
-  const volumeData = formatVolumeChartData(snapshots)
+  const activityData = formatActivityChartData(snapshots, eventsLoading ? undefined : events)
+  const volumeData = formatVolumeChartData(snapshots, eventsLoading ? undefined : events)
 
   // Calculate comparison metrics (current period vs previous period)
   const getComparisonMetrics = () => {
@@ -80,29 +80,29 @@ export function Analytics() {
 
     // Average metrics for each period
     const avgRecent = {
-      supplied: recentPeriod.reduce((sum: number, s: any) => sum + Number(s.totalSupplied), 0) / recentPeriod.length / 1e18,
-      borrowed: recentPeriod.reduce((sum: number, s: any) => sum + Number(s.totalBorrowed), 0) / recentPeriod.length / 1e18,
+      supplied: recentPeriod.reduce((sum: number, s: any) => sum + Number(s.totalLiquidity), 0) / recentPeriod.length,
+      borrowed: recentPeriod.reduce((sum: number, s: any) => sum + Number(s.totalDebt), 0) / recentPeriod.length,
       utilization: recentPeriod.reduce((sum: number, s: any) => {
         const rate = typeof s.utilizationRate === 'string' ? parseInt(s.utilizationRate) : Number(s.utilizationRate)
         return sum + rate
-      }, 0) / recentPeriod.length / 100,
+      }, 0) / recentPeriod.length,
       supplyAPY: recentPeriod.reduce((sum: number, s: any) => {
         const apy = typeof s.supplyAPY === 'string' ? parseInt(s.supplyAPY) : Number(s.supplyAPY)
         return sum + apy
-      }, 0) / recentPeriod.length / 100,
+      }, 0) / recentPeriod.length,
     }
 
     const avgPrevious = {
-      supplied: previousPeriod.reduce((sum: number, s: any) => sum + Number(s.totalSupplied), 0) / previousPeriod.length / 1e18,
-      borrowed: previousPeriod.reduce((sum: number, s: any) => sum + Number(s.totalBorrowed), 0) / previousPeriod.length / 1e18,
+      supplied: previousPeriod.reduce((sum: number, s: any) => sum + Number(s.totalLiquidity), 0) / previousPeriod.length,
+      borrowed: previousPeriod.reduce((sum: number, s: any) => sum + Number(s.totalDebt), 0) / previousPeriod.length,
       utilization: previousPeriod.reduce((sum: number, s: any) => {
         const rate = typeof s.utilizationRate === 'string' ? parseInt(s.utilizationRate) : Number(s.utilizationRate)
         return sum + rate
-      }, 0) / previousPeriod.length / 100,
+      }, 0) / previousPeriod.length,
       supplyAPY: previousPeriod.reduce((sum: number, s: any) => {
         const apy = typeof s.supplyAPY === 'string' ? parseInt(s.supplyAPY) : Number(s.supplyAPY)
         return sum + apy
-      }, 0) / previousPeriod.length / 100,
+      }, 0) / previousPeriod.length,
     }
 
     // Calculate percentage changes
@@ -151,7 +151,7 @@ export function Analytics() {
             <div className="bg-gray-800/50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Total Supplied</p>
               <p className="text-lg font-bold text-white mb-1">
-                {comparison.avgRecent.supplied.toFixed(8)} WOORT
+                {(comparison.avgRecent.supplied / 1e18).toFixed(8)} WOORT
               </p>
               <div className={`flex items-center text-sm ${
                 comparison.changes.supplied >= 0 ? 'text-green-400' : 'text-red-400'
@@ -169,7 +169,7 @@ export function Analytics() {
             <div className="bg-gray-800/50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Total Borrowed</p>
               <p className="text-lg font-bold text-white mb-1">
-                {comparison.avgRecent.borrowed.toFixed(8)} WOORT
+                {(comparison.avgRecent.borrowed / 1e18).toFixed(8)} WOORT
               </p>
               <div className={`flex items-center text-sm ${
                 comparison.changes.borrowed >= 0 ? 'text-green-400' : 'text-red-400'
@@ -187,7 +187,7 @@ export function Analytics() {
             <div className="bg-gray-800/50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Utilization Rate</p>
               <p className="text-lg font-bold text-white mb-1">
-                {comparison.avgRecent.utilization.toFixed(8)}%
+                {(comparison.avgRecent.utilization / 100).toFixed(8)}%
               </p>
               <div className={`flex items-center text-sm ${
                 comparison.changes.utilization >= 0 ? 'text-green-400' : 'text-red-400'
@@ -205,7 +205,7 @@ export function Analytics() {
             <div className="bg-gray-800/50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Supply APY</p>
               <p className="text-lg font-bold text-white mb-1">
-                {comparison.avgRecent.supplyAPY.toFixed(8)}%
+                {(comparison.avgRecent.supplyAPY / 100).toFixed(8)}%
               </p>
               <div className={`flex items-center text-sm ${
                 comparison.changes.supplyAPY >= 0 ? 'text-green-400' : 'text-red-400'
@@ -271,8 +271,8 @@ export function Analytics() {
                     ? parseInt(s.utilizationRate) 
                     : Number(s.utilizationRate)
                   return sum + rate
-                }, 0) / snapshots.length / 100 // Divide by 100 to convert basis points to percentage
-                return avgUtilization.toFixed(8)
+                }, 0) / snapshots.length
+                return (avgUtilization / 100).toFixed(2)
               })()}%
             </p>
           </div>

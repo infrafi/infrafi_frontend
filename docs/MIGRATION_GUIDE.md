@@ -72,7 +72,7 @@ const lenderPosition = await vault.getLenderPosition(address)
 Replace all addresses in `CONTRACT_ADDRESSES`:
 ```typescript
 export const CONTRACT_ADDRESSES = {
-  NodeVaultUpgradeable: '0x484407CE57245A96782E1d28a81d1536DAAE0176',
+  NodeVaultUpgradeable: '0xdE642341Fc61E92bfbae7f2299C24651ceF087Cf',
   WOORT: '0x0809f1dC272F42F96F0B06cE5fFCEC97cB9FA82d',
   ProtocolAdapterRegistry: '0x08Ebce0AAcd684b5eeD117A5752D404063EA5438',
   NodeProxyManager: '0x537A5e44934119dcD26FA9A18bFfE9daCc6100C8',

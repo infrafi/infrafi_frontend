@@ -29,7 +29,8 @@ export function useInfraFi() {
     
     // Use individual try-catch blocks for each function to handle missing methods gracefully
     let totalSupplied = BigInt(0)
-    let totalBorrowed = BigInt(0)
+    let totalDebt = BigInt(0)  // Total debt including interest
+    let totalBorrowed = BigInt(0)  // Principal only (for interest calculation)
     let totalBorrowInterest = BigInt(0)
     let totalLenderInterest = BigInt(0)
     let utilizationRate = 0
@@ -45,26 +46,36 @@ export function useInfraFi() {
 
     try {
       // Get total debt (principal + interest)
-      const totalDebt = BigInt(await contracts.nodeVault.getTotalDebt())
+      totalDebt = BigInt(await contracts.nodeVault.getTotalDebt())
       console.log('✅ getTotalDebt():', totalDebt.toString())
       
-      // Get principal amounts
-      const totalLent = BigInt(await contracts.nodeVault.totalLent())
-      const totalRepaid = BigInt(await contracts.nodeVault.totalRepaid())
-      const principalDebt = totalLent - totalRepaid
-      
-      // Total borrowed (principal only)
-      totalBorrowed = principalDebt
-      
-      // Total interest = total debt - principal debt
-      totalBorrowInterest = totalDebt - principalDebt
-      
-      console.log('✅ Calculated totals:', {
-        totalBorrowed: totalBorrowed.toString(),
-        totalBorrowInterest: totalBorrowInterest.toString(),
-      })
+      // Get principal amounts (optional - for interest calculation)
+      try {
+        const totalLent = BigInt(await contracts.nodeVault.totalLent())
+        const totalRepaid = BigInt(await contracts.nodeVault.totalRepaid())
+        const principalDebt = totalLent - totalRepaid
+        
+        // Total borrowed (principal only) - for interest calculation
+        totalBorrowed = principalDebt
+        
+        // Total interest = total debt - principal debt
+        totalBorrowInterest = totalDebt - principalDebt
+        
+        console.log('✅ Calculated totals:', {
+          totalDebt: totalDebt.toString(),
+          totalBorrowed: totalBorrowed.toString(),
+          totalBorrowInterest: totalBorrowInterest.toString(),
+        })
+      } catch (principalError) {
+        console.warn('Principal calculation failed, using totalDebt only:', principalError.message)
+        // If principal calculation fails, we still have totalDebt
+        // Set reasonable defaults for interest calculation
+        totalBorrowed = totalDebt // Assume most debt is principal
+        totalBorrowInterest = BigInt(0) // Conservative estimate
+      }
     } catch (error) {
-      console.warn('getTotalDebt() or interest calculation failed:', error)
+      console.warn('getTotalDebt() failed:', error)
+      totalDebt = BigInt(0)
       totalBorrowed = BigInt(0)
       totalBorrowInterest = BigInt(0)
     }
@@ -128,6 +139,7 @@ export function useInfraFi() {
 
     setProtocolStats({
       totalSupplied,
+      totalDebt,
       totalBorrowed,
       totalBorrowInterest,
       totalLenderInterest,
@@ -254,44 +266,41 @@ export function useInfraFi() {
         return
       }
 
-      // Fetch detailed info for each node using nodeDataInfo(address)
-      const nodesToFetch = nodeAddresses.slice(0, 50) // Limit for performance
-      console.log('🔍 Fetching node details for', nodesToFetch.length, 'nodes...')
+      // Fetch detailed info for each node
+      console.log('🔍 Fetching node details for all', nodeAddresses.length, 'nodes...')
       
       const nodes = []
-      for (let i = 0; i < nodesToFetch.length; i++) {
-        const nodeAddress = nodesToFetch[i]
-        console.log(`🔍 Fetching node ${i + 1}/${nodesToFetch.length}: ${nodeAddress}`)
+      for (let i = 0; i < nodeAddresses.length; i++) {
+        const nodeAddress = nodeAddresses[i]
+        const nodeId = BigInt(nodeAddress)
+        console.log(`🔍 Fetching node ${i + 1}/${nodeAddresses.length}: ${nodeAddress}`)
         
         try {
-          // Use nodeDataInfo with the node address
+          // For available nodes (not in vault), get data directly from OORT contract
           const nodeData = await contracts.oortNode!.nodeDataInfo(nodeAddress)
-          console.log(`   ✅ Raw nodeData:`, nodeData)
           
-          // Parse the rich data structure from the test script
+          console.log(`   ✅ Node data:`, {
+            address: nodeAddress,
+            balance: nodeData.balance.toString(),
+            pledge: nodeData.pledge.toString(),
+            totalRewards: nodeData.totalRewards.toString(),
+            nodeStatus: nodeData.nodeStatus
+          })
+          
           const node = {
-            id: BigInt(nodeAddress), // Use address as ID
+            id: nodeId,
             owner: nodeData.ownerAddress,
-            stakedAmount: BigInt(nodeData.pledge), // Original pledge amount
-            rewards: BigInt(nodeData.totalRewards), // Total earned rewards
+            stakedAmount: BigInt(nodeData.pledge),
+            rewards: BigInt(nodeData.totalRewards),
             isActive: nodeData.nodeStatus,
-            // Additional data available from OORT contract
             nodeAddress: nodeData.nodeAddress,
-            balance: BigInt(nodeData.balance), // pledge + rewards  
+            balance: BigInt(nodeData.balance), // Total balance from OORT contract (pledge + rewards)
             lockedRewards: BigInt(nodeData.lockedRewards),
             maxPledge: BigInt(nodeData.maxPledge),
             endTime: Number(nodeData.endTime),
             nodeType: Number(nodeData.nodeType),
             lockTime: Number(nodeData.lockTime),
           }
-          
-          console.log(`   ✅ Parsed node:`, {
-            address: nodeAddress,
-            pledge: `${node.stakedAmount}`,
-            rewards: `${node.rewards}`,
-            balance: `${node.balance}`,
-            isActive: node.isActive
-          })
           
           nodes.push(node)
           
@@ -301,7 +310,7 @@ export function useInfraFi() {
         }
       }
 
-      console.log('✅ Successfully fetched', nodes.length, 'out of', nodesToFetch.length, 'nodes')
+      console.log('✅ Successfully fetched', nodes.length, 'out of', nodeAddresses.length, 'nodes')
       setUserNodes(nodes)
       
     } catch (error) {
@@ -347,24 +356,33 @@ export function useInfraFi() {
           // Get detailed node information from OORT contract
           const nodeData = await contracts.oortNode.nodeDataInfo(nodeAddress)
           
+          // 🎯 Get asset value from vault (protocol-agnostic approach)
+          const nodeInfo = await contracts.nodeVault.getNodeInfo(nodeId, nodeType)
+          const assetValue = BigInt(nodeInfo.assetValue || 0)
+          
+          console.log(`   ✅ Deposited node data:`, {
+            address: nodeAddress,
+            assetValue: assetValue.toString(),
+            nodeType,
+            inVault: nodeInfo.inVault
+          })
+          
           const node: OortNode = {
             id: nodeId,
-            owner: wallet.address,
-            stakedAmount: nodeData[0] || BigInt(0), // pledge
-            rewards: nodeData[1] || BigInt(0), // rewards
-            isActive: true,
-            // Rich data from nodeDataInfo
+            owner: nodeData.ownerAddress,
+            stakedAmount: BigInt(nodeData.pledge),
+            rewards: BigInt(nodeData.totalRewards),
+            isActive: nodeData.nodeStatus,
             nodeAddress: nodeAddress,
-            balance: nodeData[2] || BigInt(0), // pledge + rewards
-            lockedRewards: nodeData[3] || BigInt(0),
-            maxPledge: nodeData[4] || BigInt(0),
-            endTime: Number(nodeData[5] || 0),
-            nodeType: Number(nodeData[6] || 1),
-            lockTime: Number(nodeData[7] || 0)
+            balance: assetValue, // 🎯 Protocol-agnostic asset value from vault
+            lockedRewards: BigInt(nodeData.lockedRewards),
+            maxPledge: BigInt(nodeData.maxPledge),
+            endTime: Number(nodeData.endTime),
+            nodeType: Number(nodeData.nodeType),
+            lockTime: Number(nodeData.lockTime),
           }
           
           depositedNodeDetails.push(node)
-          console.log(`✅ Successfully processed deposited node: ${nodeAddress}`)
           
         } catch (nodeError) {
           console.log(`⚠️  Error processing deposited node:`, nodeError instanceof Error ? nodeError.message : String(nodeError))
@@ -491,11 +509,13 @@ export function useInfraFi() {
         console.log('✅ Using existing proxy:', proxyAddress)
       } else {
         console.log('🔧 Creating new proxy...')
-        const tx = await contracts.proxyManager.getProxyForDeposit(OORT_PROTOCOL_TYPE)
-        await tx.wait()
+        // First simulate to get the return value (proxy address)
+        proxyAddress = await contracts.nodeVault.createProxyForProtocol.staticCall(OORT_PROTOCOL_TYPE)
+        console.log('📋 Proxy address will be:', proxyAddress)
         
-        const updatedProxies = await contracts.proxyManager.getProtocolProxies(OORT_PROTOCOL_TYPE)
-        proxyAddress = updatedProxies[updatedProxies.length - 1]
+        // Then send the actual transaction
+        const tx = await contracts.nodeVault.createProxyForProtocol(OORT_PROTOCOL_TYPE)
+        await tx.wait()
         console.log('✅ New proxy created:', proxyAddress)
       }
 
@@ -514,8 +534,14 @@ export function useInfraFi() {
       await depositTx.wait()
       console.log('✅ Nodes deposited as collateral')
       
+      // Wait a bit for blockchain state to propagate (especially important for OORT RPC)
+      console.log('⏳ Waiting for blockchain state to propagate...')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
       // Refresh data
+      console.log('🔄 Refreshing all data...')
       await Promise.all([fetchProtocolStats(), fetchUserPosition(), fetchUserNodes(), fetchDepositedNodes()])
+      console.log('✅ Data refresh complete')
     } catch (error: any) {
       console.error('❌ Node deposit failed:', error)
       setTxState({ isLoading: false, error: error.message || 'Node deposit failed' })
@@ -537,8 +563,14 @@ export function useInfraFi() {
       const tx = await contracts.nodeVault.withdrawNodes(nodeIds)
       await tx.wait()
       
+      // Wait a bit for blockchain state to propagate (especially important for OORT RPC)
+      console.log('⏳ Waiting for blockchain state to propagate...')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
       // Refresh data
+      console.log('🔄 Refreshing all data...')
       await Promise.all([fetchProtocolStats(), fetchUserPosition(), fetchUserNodes(), fetchDepositedNodes()])
+      console.log('✅ Data refresh complete')
     } catch (error: any) {
       setTxState({ isLoading: false, error: error.message || 'Node withdrawal failed' })
       return

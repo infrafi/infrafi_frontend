@@ -107,13 +107,47 @@ export function parseBalance(value: string, decimals: number = 18): bigint {
 }
 
 // Format APY percentage
+// Format APY from basis points (contract returns basis points: 10000 = 100%)
 export function formatAPY(basisPoints: number): string {
-  return `${(basisPoints / 100).toFixed(8)}%`;
+  return `${(basisPoints / 100).toFixed(2)}%`;
 }
 
-// Format utilization percentage
+// Format utilization percentage from basis points (contract returns basis points: 10000 = 100%)
 export function formatUtilization(basisPoints: number): string {
-  return `${(basisPoints / 100).toFixed(8)}%`;
+  return `${(basisPoints / 100).toFixed(2)}%`;
+}
+
+// Format token amounts with full precision (contract returns wei: 18 decimals)
+export function formatTokenAmount(value: any, decimals: number = 18): string {
+  if (value === undefined || value === null) {
+    return "0.000000000000000000";
+  }
+  
+  let bigIntValue: bigint;
+  try {
+    if (typeof value === 'bigint') {
+      bigIntValue = value;
+    } else if (typeof value === 'string' || typeof value === 'number') {
+      bigIntValue = BigInt(value);
+    } else {
+      console.warn('formatTokenAmount: Invalid value type', typeof value, value);
+      return "0.000000000000000000";
+    }
+  } catch (error) {
+    console.warn('formatTokenAmount: Failed to convert to BigInt', value, error);
+    return "0.000000000000000000";
+  }
+
+  const divisor = BigInt(10 ** decimals);
+  const whole = bigIntValue / divisor;
+  const fraction = bigIntValue % divisor;
+  
+  if (fraction === 0n) {
+    return `${whole}.000000000000000000`;
+  }
+  
+  const fractionStr = fraction.toString().padStart(decimals, '0');
+  return `${whole}.${fractionStr}`;
 }
 
 // Calculate health factor

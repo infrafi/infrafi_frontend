@@ -68,21 +68,6 @@ function NodeCard({
         </div>
       </div>
       
-      <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
-        <div>
-          <p className="text-gray-400">Original Pledge</p>
-          <p className="text-white">{formatBalance(node.stakedAmount)} WOORT</p>
-        </div>
-        <div>
-          <p className="text-gray-400">Earned Rewards</p>
-          <p className="text-green-400">{formatBalance(node.rewards)} WOORT</p>
-        </div>
-        <div>
-          <p className="text-gray-400">Locked Rewards</p>
-          <p className="text-yellow-400">{formatBalance(node.lockedRewards)} WOORT</p>
-        </div>
-      </div>
-      
       <div className="mt-2 text-xs text-gray-500">
         <p>Node Address: {node.nodeAddress}</p>
       </div>

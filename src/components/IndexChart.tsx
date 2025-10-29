@@ -159,8 +159,8 @@ export function IndexChart({ data, events }: IndexChartProps) {
         
         {/* Index Data */}
         <div className="space-y-1 mb-2">
-          <p className="text-xs text-orange-400">Borrow Index: {dataPoint.borrowIndex?.toFixed(6)}</p>
-          <p className="text-xs text-green-400">Supply Index: {dataPoint.supplyIndex?.toFixed(6)}</p>
+          <p className="text-xs text-orange-400">Borrow Index: {dataPoint.borrowIndex?.toFixed(18)}</p>
+          <p className="text-xs text-green-400">Supply Index: {dataPoint.supplyIndex?.toFixed(18)}</p>
         </div>
 
         {/* Event Markers */}
@@ -332,6 +332,7 @@ export function IndexChart({ data, events }: IndexChartProps) {
             stroke="#9CA3AF"
             style={{ fontSize: '12px' }}
             tickFormatter={(value) => value.toFixed(2)}
+            domain={[1, 'auto']}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend 

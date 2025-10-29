@@ -6,8 +6,7 @@ import { gql } from '@apollo/client'
 export const GET_PROTOCOL_STATS = gql`
   query GetProtocolStats {
     protocol(id: "1") {
-      totalSupplied
-      totalBorrowed
+      totalLiquidity
       totalDebt
       totalCollateralValue
       totalNodesDeposited
@@ -161,8 +160,8 @@ export const GET_INTEREST_RATE_HISTORY = gql`
       utilizationRate
       borrowIndex
       supplyIndex
-      totalSupplied
-      totalBorrowed
+      totalLiquidity
+      totalDebt
       blockNumber
     }
   }
@@ -180,8 +179,8 @@ export const GET_DAILY_SNAPSHOTS = gql`
     ) {
       id
       date
-      totalSupplied
-      totalBorrowed
+      totalLiquidity
+      totalDebt
       totalCollateralValue
       supplyAPY
       borrowAPY

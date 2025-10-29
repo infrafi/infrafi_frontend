@@ -31,6 +31,7 @@ export function useUserTimeline(address: string | null) {
   const { data, loading, error, refetch } = useQuery(GET_USER_TIMELINE, {
     variables: { address: address?.toLowerCase() || '' },
     skip: !address,
+    fetchPolicy: 'cache-and-network', // Always fetch fresh data but show cached data immediately
     // No polling - user timeline doesn't change frequently
   })
 
@@ -57,6 +58,7 @@ export function useUserPosition(address: string | null) {
   const { data, loading, error, refetch } = useQuery(GET_USER_POSITION, {
     variables: { address: address?.toLowerCase() || '' },
     skip: !address,
+    fetchPolicy: 'cache-and-network', // Always fetch fresh data but show cached data immediately
     // No polling - user can manually refresh if needed
   })
 

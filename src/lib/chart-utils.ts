@@ -1,4 +1,9 @@
-import { formatBalance } from './utils'
+import { formatTokenAmount } from './utils'
+
+// Helper function to convert basis points to percentage with full precision
+function basisPointsToPercentage(basisPoints: number): number {
+  return Number((basisPoints / 100).toFixed(8))
+}
 
 /**
  * Format daily snapshots for TVL chart
@@ -13,9 +18,9 @@ export function formatTVLChartData(snapshots: any[], currentProtocol?: any) {
           day: 'numeric',
         }),
         timestamp: Math.floor(Date.now() / 1000),
-        totalSupplied: Number(formatBalance(BigInt(currentProtocol.totalSupplied || '0'))),
-        totalBorrowed: Math.abs(Number(formatBalance(BigInt(currentProtocol.totalBorrowed || '0')))),
-        totalCollateral: Number(formatBalance(BigInt(currentProtocol.totalCollateralValue || '0'))),
+        totalSupplied: Number(formatTokenAmount(BigInt(currentProtocol.totalLiquidity || '0'))),
+        totalBorrowed: Math.abs(Number(formatTokenAmount(BigInt(currentProtocol.totalDebt || '0')))),
+        totalCollateral: Number(formatTokenAmount(BigInt(currentProtocol.totalCollateralValue || '0'))),
       }]
     }
     return []
@@ -30,9 +35,9 @@ export function formatTVLChartData(snapshots: any[], currentProtocol?: any) {
             day: 'numeric',
           }),
           timestamp: snapshot.date,
-          totalSupplied: Number(formatBalance(BigInt(snapshot.totalSupplied || '0'))),
-          totalBorrowed: Math.abs(Number(formatBalance(BigInt(snapshot.totalBorrowed || '0')))),
-          totalCollateral: Number(formatBalance(BigInt(snapshot.totalCollateralValue || '0'))),
+          totalSupplied: Number(formatTokenAmount(BigInt(snapshot.totalLiquidity || '0'))),
+          totalBorrowed: Math.abs(Number(formatTokenAmount(BigInt(snapshot.totalDebt || '0')))),
+          totalCollateral: Number(formatTokenAmount(BigInt(snapshot.totalCollateralValue || '0'))),
         }
       } catch (error) {
         console.error('Error formatting TVL data:', error, snapshot)
@@ -52,9 +57,9 @@ export function formatTVLChartData(snapshots: any[], currentProtocol?: any) {
       historicalData.push({
         date: 'Now',
         timestamp: now,
-        totalSupplied: Number(formatBalance(BigInt(currentProtocol.totalSupplied || '0'))),
-        totalBorrowed: Math.abs(Number(formatBalance(BigInt(currentProtocol.totalBorrowed || '0')))),
-        totalCollateral: Number(formatBalance(BigInt(currentProtocol.totalCollateralValue || '0'))),
+        totalSupplied: Number(formatTokenAmount(BigInt(currentProtocol.totalLiquidity || '0'))),
+        totalBorrowed: Math.abs(Number(formatTokenAmount(BigInt(currentProtocol.totalDebt || '0')))),
+        totalCollateral: Number(formatTokenAmount(BigInt(currentProtocol.totalCollateralValue || '0'))),
       })
     }
   }
@@ -75,9 +80,9 @@ export function formatAPYChartData(snapshots: any[], currentProtocol?: any) {
           day: 'numeric',
         }),
         timestamp: Math.floor(Date.now() / 1000),
-        supplyAPY: (currentProtocol.supplyAPY || 0) / 100,
-        borrowAPY: (currentProtocol.borrowAPY || 0) / 100,
-        utilization: (currentProtocol.utilizationRate || 0) / 100,
+        supplyAPY: basisPointsToPercentage(currentProtocol.supplyAPY || 0),
+        borrowAPY: basisPointsToPercentage(currentProtocol.borrowAPY || 0),
+        utilization: basisPointsToPercentage(currentProtocol.utilizationRate || 0),
       }]
     }
     return []
@@ -94,9 +99,9 @@ export function formatAPYChartData(snapshots: any[], currentProtocol?: any) {
             day: 'numeric',
           }),
           timestamp: timestamp,
-          supplyAPY: (snapshot.supplyAPY || 0) / 100, // Convert basis points to percentage
-          borrowAPY: (snapshot.borrowAPY || 0) / 100,
-          utilization: (snapshot.utilizationRate || 0) / 100,
+          supplyAPY: basisPointsToPercentage(snapshot.supplyAPY || 0), // Convert basis points to percentage
+          borrowAPY: basisPointsToPercentage(snapshot.borrowAPY || 0),
+          utilization: basisPointsToPercentage(snapshot.utilizationRate || 0),
         }
       } catch (error) {
         console.error('Error formatting APY data:', error, snapshot)
@@ -128,11 +133,11 @@ export function formatAPYChartData(snapshots: any[], currentProtocol?: any) {
 
 /**
  * Format daily snapshots for activity chart
+ * @param snapshots Historical daily snapshots from subgraph
+ * @param events Optional events data to aggregate today's activity
  */
-export function formatActivityChartData(snapshots: any[]) {
-  if (!snapshots || snapshots.length === 0) return []
-  
-  return snapshots
+export function formatActivityChartData(snapshots: any[], events?: any) {
+  const historicalData = snapshots
     .map((snapshot) => {
       try {
         return {
@@ -154,16 +159,72 @@ export function formatActivityChartData(snapshots: any[]) {
       }
     })
     .filter((item) => item !== null)
-    .reverse()
+  
+  // Aggregate today's events if provided
+  if (events) {
+    const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
+    const todayEnd = Math.floor(Date.now() / 1000)
+    
+    const todayEvents = {
+      supplies: (events.supplyEvents || []).filter((e: any) => {
+        const ts = Number(e.timestamp || 0)
+        return ts >= todayStart && ts <= todayEnd
+      }).length,
+      withdrawals: (events.withdrawEvents || []).filter((e: any) => {
+        const ts = Number(e.timestamp || 0)
+        return ts >= todayStart && ts <= todayEnd
+      }).length,
+      borrows: (events.borrowEvents || []).filter((e: any) => {
+        const ts = Number(e.timestamp || 0)
+        return ts >= todayStart && ts <= todayEnd
+      }).length,
+      repays: (events.repayEvents || []).filter((e: any) => {
+        const ts = Number(e.timestamp || 0)
+        return ts >= todayStart && ts <= todayEnd
+      }).length,
+      nodeDeposits: (events.nodeDepositEvents || []).filter((e: any) => {
+        const ts = Number(e.timestamp || 0)
+        return ts >= todayStart && ts <= todayEnd
+      }).length,
+      nodeWithdrawals: (events.nodeWithdrawalEvents || []).filter((e: any) => {
+        const ts = Number(e.timestamp || 0)
+        return ts >= todayStart && ts <= todayEnd
+      }).length,
+    }
+    
+    // Check if today's data doesn't already exist in snapshots
+    const todayDateStr = new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    })
+    const hasTodayData = historicalData.some((item: any) => item.date === todayDateStr)
+    
+    // Only append if there's activity today and it doesn't already exist
+    if (!hasTodayData && Object.values(todayEvents).some(count => count > 0)) {
+      historicalData.push({
+        date: todayDateStr,
+        timestamp: Math.floor(Date.now() / 1000),
+        supplies: todayEvents.supplies,
+        withdrawals: todayEvents.withdrawals,
+        borrows: todayEvents.borrows,
+        repays: todayEvents.repays,
+        nodeDeposits: todayEvents.nodeDeposits,
+        nodeWithdrawals: todayEvents.nodeWithdrawals,
+      })
+    }
+  }
+  
+  // Sort by timestamp (oldest first, so newest appears on right in chart)
+  return historicalData.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0))
 }
 
 /**
  * Format daily snapshots for volume chart
+ * @param snapshots Historical daily snapshots from subgraph
+ * @param events Optional events data to aggregate today's volume
  */
-export function formatVolumeChartData(snapshots: any[]) {
-  if (!snapshots || snapshots.length === 0) return []
-  
-  return snapshots
+export function formatVolumeChartData(snapshots: any[], events?: any) {
+  const historicalData = snapshots
     .map((snapshot) => {
       try {
         return {
@@ -172,10 +233,10 @@ export function formatVolumeChartData(snapshots: any[]) {
             day: 'numeric',
           }),
           timestamp: snapshot.date,
-          supplyVolume: Number(formatBalance(BigInt(snapshot.supplyVolume || '0'))),
-          withdrawVolume: Number(formatBalance(BigInt(snapshot.withdrawVolume || '0'))),
-          borrowVolume: Number(formatBalance(BigInt(snapshot.borrowVolume || '0'))),
-          repayVolume: Number(formatBalance(BigInt(snapshot.repayVolume || '0'))),
+          supplyVolume: Number(formatTokenAmount(BigInt(snapshot.supplyVolume || '0'))),
+          withdrawVolume: Number(formatTokenAmount(BigInt(snapshot.withdrawVolume || '0'))),
+          borrowVolume: Number(formatTokenAmount(BigInt(snapshot.borrowVolume || '0'))),
+          repayVolume: Number(formatTokenAmount(BigInt(snapshot.repayVolume || '0'))),
         }
       } catch (error) {
         console.error('Error formatting volume data:', error, snapshot)
@@ -183,7 +244,61 @@ export function formatVolumeChartData(snapshots: any[]) {
       }
     })
     .filter((item) => item !== null)
-    .reverse()
+  
+  // Aggregate today's volume from events if provided
+  if (events) {
+    const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
+    const todayEnd = Math.floor(Date.now() / 1000)
+    
+    const todayVolume = {
+      supplyVolume: (events.supplyEvents || [])
+        .filter((e: any) => {
+          const ts = Number(e.timestamp || 0)
+          return ts >= todayStart && ts <= todayEnd
+        })
+        .reduce((sum: number, e: any) => sum + Number(formatTokenAmount(BigInt(e.amount || '0'))), 0),
+      withdrawVolume: (events.withdrawEvents || [])
+        .filter((e: any) => {
+          const ts = Number(e.timestamp || 0)
+          return ts >= todayStart && ts <= todayEnd
+        })
+        .reduce((sum: number, e: any) => sum + Number(formatTokenAmount(BigInt(e.amount || '0'))), 0),
+      borrowVolume: (events.borrowEvents || [])
+        .filter((e: any) => {
+          const ts = Number(e.timestamp || 0)
+          return ts >= todayStart && ts <= todayEnd
+        })
+        .reduce((sum: number, e: any) => sum + Number(formatTokenAmount(BigInt(e.amount || '0'))), 0),
+      repayVolume: (events.repayEvents || [])
+        .filter((e: any) => {
+          const ts = Number(e.timestamp || 0)
+          return ts >= todayStart && ts <= todayEnd
+        })
+        .reduce((sum: number, e: any) => sum + Number(formatTokenAmount(BigInt(e.amount || '0'))), 0),
+    }
+    
+    // Check if today's data doesn't already exist in snapshots
+    const todayDateStr = new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    })
+    const hasTodayData = historicalData.some((item: any) => item.date === todayDateStr)
+    
+    // Only append if there's volume today and it doesn't already exist
+    if (!hasTodayData && Object.values(todayVolume).some(vol => vol > 0)) {
+      historicalData.push({
+        date: todayDateStr,
+        timestamp: Math.floor(Date.now() / 1000),
+        supplyVolume: todayVolume.supplyVolume,
+        withdrawVolume: todayVolume.withdrawVolume,
+        borrowVolume: todayVolume.borrowVolume,
+        repayVolume: todayVolume.repayVolume,
+      })
+    }
+  }
+  
+  // Sort by timestamp (oldest first, so newest appears on right in chart)
+  return historicalData.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0))
 }
 
 /**
@@ -210,11 +325,11 @@ export function formatInterestRateChartData(snapshots: any[], startTime?: number
             minute: '2-digit',
           }),
           timestamp: Number(snapshot.timestamp),
-          supplyAPY: snapshot.supplyAPY / 100,
-          borrowAPY: snapshot.borrowAPY / 100,
-          utilization: snapshot.utilizationRate / 100,
-          totalSupplied: Number(formatBalance(BigInt(snapshot.totalSupplied))),
-          totalBorrowed: Number(formatBalance(BigInt(snapshot.totalBorrowed))),
+          supplyAPY: basisPointsToPercentage(snapshot.supplyAPY),
+          borrowAPY: basisPointsToPercentage(snapshot.borrowAPY),
+          utilization: basisPointsToPercentage(snapshot.utilizationRate),
+          totalSupplied: Number(formatTokenAmount(BigInt(snapshot.totalLiquidity))),
+          totalBorrowed: Number(formatTokenAmount(BigInt(snapshot.totalDebt))),
         }
       } catch (error) {
         console.error('Error formatting interest rate data:', error, snapshot)
@@ -249,9 +364,9 @@ export function formatIndexChartData(snapshots: any[], startTime?: number) {
             minute: '2-digit',
           }),
           timestamp: Number(snapshot.timestamp),
-          // Convert from 1e18 to decimal (e.g., 1.05e18 -> 1.05)
-          borrowIndex: Number(snapshot.borrowIndex) / 1e18,
-          supplyIndex: Number(snapshot.supplyIndex) / 1e18,
+          // Convert from 1e18 to decimal with full precision (e.g., 1.05e18 -> 1.05)
+          borrowIndex: Number(formatTokenAmount(BigInt(snapshot.borrowIndex))),
+          supplyIndex: Number(formatTokenAmount(BigInt(snapshot.supplyIndex))),
         }
       } catch (error) {
         console.error('Error formatting index data:', error, snapshot)

@@ -1,11 +1,11 @@
 // Contract addresses and configuration for InfraFi protocol
-// 🚀 UPDATED: October 2025 - OORT Testnet Deployment with Revenue Sharing
+// 🚀 UPDATED: October 29, 2025 - OORT Testnet Redeployment (Latest)
 export const CONTRACT_ADDRESSES = {
-  NodeVaultUpgradeable: '0x484407CE57245A96782E1d28a81d1536DAAE0176', // ✅ Testnet: With revenue sharing (15/5/80)
+  NodeVaultUpgradeable: '0xdE642341Fc61E92bfbae7f2299C24651ceF087Cf', // ✅ Testnet: Latest deployment - With revenue sharing (15/5/80)
   WOORT: '0x0809f1dC272F42F96F0B06cE5fFCEC97cB9FA82d',
-  ProtocolAdapterRegistry: '0x08Ebce0AAcd684b5eeD117A5752D404063EA5438', // ✅ Testnet: With deployer tracking
-  NodeProxyManager: '0x537A5e44934119dcD26FA9A18bFfE9daCc6100C8', // ✅ Testnet: Proxy manager
-  OortProtocolAdapter: '0x241D931d6A8503E0176cfD1239237771498Fa0c4', // ✅ Testnet: OORT adapter
+  ProtocolAdapterRegistry: '0x66756b707B888e02DE08f373183AF08ED5803F18', // ✅ Testnet: Latest deployment - With deployer tracking
+  NodeProxyManager: '0x5bC1666b5EDDbC6487310C27F6fBbF1E53ad4739', // ✅ Testnet: Latest deployment - Proxy manager
+  OortProtocolAdapter: '0x0E7219a485555fD34e1538f5a859b20cf15d6f3A', // ✅ Testnet: Latest deployment - OORT adapter
   OortNodeContract: '0xA97E5185DC116588A85197f446Aa87cE558d254C', // ✅ Testnet: OORT node contract
 } as const;
 
@@ -17,9 +17,9 @@ export const OORT_NETWORK = {
 } as const;
 
 export const PROTOCOL_PARAMS = {
-  // 🛡️ TESTNET DEPLOYMENT PARAMETERS - Current testnet configuration
-  maxLTVPercent: 70, // 70% max LTV (Safe borrowing with 10% buffer)
-  liquidationThreshold: 80, // 80% liquidation threshold (hardcoded)
+  // 🛡️ TESTNET DEPLOYMENT PARAMETERS - Block 893295 configuration
+  maxLTVPercent: 80, // 80% max LTV (testnet-friendly for easier testing)
+  liquidationThreshold: 80, // 80% liquidation threshold
   interestRateModel: {
     baseRate: 300, // 3% base rate (in basis points)
     multiplier: 800, // 8% multiplier (in basis points)
@@ -91,6 +91,7 @@ export const OORT_NODE_ABI = [
   // Correct ABI from the test script - getOwnerNodeList returns ADDRESSES, not IDs
   'function getOwnerNodeList(address owner) external view returns (address[])',
   'function nodeDataInfo(address nodeAddress) external view returns (tuple(address ownerAddress, address nodeAddress, uint256 pledge, uint256 maxPledge, uint256 endTime, uint256 lockedRewards, uint256 balance, uint256 nodeType, uint256 lockTime, uint256 totalRewards, bool nodeStatus))',
+  'function nodeAvailableBalanceAndPledge(address node_address) external view returns (uint256 availableBalance, uint256 realPledge)',
   'function changeOwner(address newOwner, address[] nodeAddressList) external',
 ] as const;
 

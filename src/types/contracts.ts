@@ -9,7 +9,8 @@ export interface WalletState {
 
 export interface ProtocolStats {
   totalSupplied: bigint;
-  totalBorrowed: bigint;
+  totalDebt: bigint;  // Total debt including interest
+  totalBorrowed: bigint;  // Principal only
   totalBorrowInterest: bigint;  // Total interest accrued from borrowers
   totalLenderInterest: bigint;  // Total interest available to lenders
   utilizationRate: number;
