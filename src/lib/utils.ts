@@ -26,28 +26,33 @@ export function formatBalance(value: any, decimals: number = 18): string {
     return "0";
   }
 
+  // Handle negative values
+  const isNegative = bigIntValue < 0n;
+  const absValue = isNegative ? -bigIntValue : bigIntValue;
+  const sign = isNegative ? '-' : '';
+
   const divisor = BigInt(10 ** decimals);
-  const whole = bigIntValue / divisor;
-  const fraction = bigIntValue % divisor;
+  const whole = absValue / divisor;
+  const fraction = absValue % divisor;
   const wholeNum = Number(whole); // Convert for comparison with numbers
   
   if (wholeNum >= 1000000) {
-    return `${(wholeNum / 1000000).toFixed(8)}M`;
+    return `${sign}${(wholeNum / 1000000).toFixed(8)}M`;
   } else if (wholeNum >= 1000) {
-    return `${(wholeNum / 1000).toFixed(8)}K`;
+    return `${sign}${(wholeNum / 1000).toFixed(8)}K`;
   } else if (whole === 0n && fraction === 0n) {
-    return "0.00000000";
+    return isNegative ? "-0.00000000" : "0.00000000";
   } else if (whole === 0n) {
     const fractionStr = fraction.toString().padStart(decimals, '0');
     const significant = fractionStr.replace(/0+$/, '');
-    if (significant.length === 0) return "0.00000000";
-    return `0.${significant.slice(0, 8)}`;
+    if (significant.length === 0) return isNegative ? "-0.00000000" : "0.00000000";
+    return `${sign}0.${significant.slice(0, 8)}`;
   }
   
   // Format with 8 decimal places for testing precision
   const fractionStr = fraction.toString().padStart(decimals, '0');
   const decimalPart = fractionStr.slice(0, 8);
-  return `${whole}.${decimalPart}`;
+  return `${sign}${whole}.${decimalPart}`;
 }
 
 // Convert BigInt to plain decimal string (for input fields)
@@ -156,6 +161,16 @@ export function calculateHealthFactor(collateralValue: bigint, debtValue: bigint
   
   const adjustedCollateral = collateralValue * BigInt(liquidationThreshold) / BigInt(100);
   return Number(adjustedCollateral) / Number(debtValue);
+}
+
+// Calculate LTV (Loan-to-Value) ratio
+export function calculateLTV(collateralValue: bigint, debtValue: bigint): number {
+  if (collateralValue === BigInt(0)) return 0;
+  if (debtValue === BigInt(0)) return 0;
+  
+  // LTV = (Debt / Collateral) * 100
+  // Use Number conversion for percentage calculation
+  return (Number(debtValue) / Number(collateralValue)) * 100;
 }
 
 // Validate amount input

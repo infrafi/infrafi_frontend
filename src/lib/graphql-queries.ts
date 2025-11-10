@@ -44,6 +44,7 @@ export const GET_USER_POSITION = gql`
 
 /**
  * Query user complete activity timeline
+ * Uses both user entity (if exists) and direct event queries as fallback
  */
 export const GET_USER_TIMELINE = gql`
   query GetUserTimeline($address: ID!, $first: Int = 100) {
@@ -61,6 +62,8 @@ export const GET_USER_TIMELINE = gql`
       withdrawEvents(first: $first, orderBy: timestamp, orderDirection: desc) {
         id
         amount
+        principalAmount
+        interestAmount
         timestamp
         blockNumber
         transactionHash
@@ -100,6 +103,90 @@ export const GET_USER_TIMELINE = gql`
         blockNumber
         transactionHash
       }
+    }
+    
+    # Fallback: Query events directly if user entity doesn't exist or has no events
+    supplyEvents(
+      where: { user: $address }
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+    ) {
+      id
+      amount
+      timestamp
+      blockNumber
+      transactionHash
+    }
+    
+    withdrawEvents(
+      where: { user: $address }
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+    ) {
+      id
+      amount
+      principalAmount
+      interestAmount
+      timestamp
+      blockNumber
+      transactionHash
+    }
+    
+    borrowEvents(
+      where: { user: $address }
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+    ) {
+      id
+      amount
+      timestamp
+      blockNumber
+      transactionHash
+    }
+    
+    repayEvents(
+      where: { user: $address }
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+    ) {
+      id
+      amount
+      timestamp
+      blockNumber
+      transactionHash
+    }
+    
+    nodeDepositEvents(
+      where: { user: $address }
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+    ) {
+      id
+      nodeId
+      nodeType
+      assetValue
+      timestamp
+      blockNumber
+      transactionHash
+    }
+    
+    nodeWithdrawalEvents(
+      where: { user: $address }
+      first: $first
+      orderBy: timestamp
+      orderDirection: desc
+    ) {
+      id
+      nodeId
+      nodeType
+      timestamp
+      blockNumber
+      transactionHash
     }
   }
 `

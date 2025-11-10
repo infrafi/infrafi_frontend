@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useUserTimeline, useUserPosition } from '@/hooks/useSubgraph'
-import { formatBalance } from '@/lib/utils'
+import { useWeb3 } from '@/contexts/Web3Context'
+import { formatBalance, formatTokenAmount } from '@/lib/utils'
 
 interface UserPerformanceChartProps {
   address: string | null
@@ -12,15 +13,60 @@ interface UserPerformanceChartProps {
 export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
   const { supplyEvents, withdrawEvents, borrowEvents, repayEvents, nodeDeposits, nodeWithdrawals, isLoading: eventsLoading } = useUserTimeline(address)
   const { userPosition, isLoading: positionLoading } = useUserPosition(address)
+  const { contracts } = useWeb3()
+  
+  // Fetch real-time unvested interest from contract
+  const [realTimeSupplyInterest, setRealTimeSupplyInterest] = useState<bigint>(0n)
+  const [realTimeBorrowInterest, setRealTimeBorrowInterest] = useState<bigint>(0n)
+  const [isLoadingInterest, setIsLoadingInterest] = useState(false)
 
-  const isLoading = eventsLoading || positionLoading
+  useEffect(() => {
+    const fetchRealTimeInterest = async () => {
+      if (!contracts.nodeVault || !address) {
+        setRealTimeSupplyInterest(0n)
+        setRealTimeBorrowInterest(0n)
+        return
+      }
+
+      setIsLoadingInterest(true)
+      try {
+        // Fetch real-time lender interest (includes unvested interest)
+        try {
+          const calculatedSupplyInterest = await contracts.nodeVault.calculateLenderInterest(address)
+          setRealTimeSupplyInterest(BigInt(calculatedSupplyInterest))
+          console.log('✅ Real-time supply interest:', calculatedSupplyInterest.toString())
+        } catch (error) {
+          console.warn('Failed to fetch calculateLenderInterest:', error)
+          setRealTimeSupplyInterest(0n)
+        }
+
+        // Fetch real-time borrower interest (includes unvested interest)
+        try {
+          const calculatedBorrowInterest = await contracts.nodeVault.calculateBorrowerInterest(address)
+          setRealTimeBorrowInterest(BigInt(calculatedBorrowInterest))
+          console.log('✅ Real-time borrow interest:', calculatedBorrowInterest.toString())
+        } catch (error) {
+          console.warn('Failed to fetch calculateBorrowerInterest:', error)
+          setRealTimeBorrowInterest(0n)
+        }
+      } catch (error) {
+        console.error('Error fetching real-time interest:', error)
+      } finally {
+        setIsLoadingInterest(false)
+      }
+    }
+
+    fetchRealTimeInterest()
+  }, [contracts.nodeVault, address])
+
+  const isLoading = eventsLoading || positionLoading || isLoadingInterest
 
   // Memoize chart data calculation to prevent unnecessary re-renders
   // IMPORTANT: This must be called BEFORE any conditional returns to follow Rules of Hooks
-  const chartData = useMemo(() => {
-    // Return empty array if still loading or no address
+  const chartDataWithScale = useMemo(() => {
+    // Return empty object if still loading or no address
     if (!address || isLoading) {
-      return []
+      return { data: [], maxInterest: 0.0001 }
     }
 
     // Combine all events with their effects on balances
@@ -61,14 +107,29 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
       return []
     }
 
-    // Get current interest amounts
+    // Get current interest amounts from GraphQL (historical events only)
     const currentSupplyInterest = userPosition ? BigInt(userPosition.totalSupplyInterest || 0) : 0n
     const currentBorrowInterest = userPosition ? BigInt(userPosition.totalBorrowInterest || 0) : 0n
+    
+    // Prioritize real-time interest from contract (includes unvested interest)
+    // Only fall back to GraphQL if real-time is not available or is 0
+    const finalSupplyInterest = realTimeSupplyInterest > 0n ? realTimeSupplyInterest : currentSupplyInterest
+    const finalBorrowInterest = realTimeBorrowInterest > 0n ? realTimeBorrowInterest : currentBorrowInterest
+    
+    console.log('📈 Balance History - Interest sources:', {
+      'realTimeSupplyInterest': realTimeSupplyInterest.toString(),
+      'realTimeBorrowInterest': realTimeBorrowInterest.toString(),
+      'currentSupplyInterest (GraphQL)': currentSupplyInterest.toString(),
+      'currentBorrowInterest (GraphQL)': currentBorrowInterest.toString(),
+      'finalSupplyInterest': finalSupplyInterest.toString(),
+      'finalBorrowInterest': finalBorrowInterest.toString(),
+    })
     
     // Calculate time span for interest estimation
     const firstTimestamp = allEvents.length > 0 ? allEvents[0].timestamp : 0
     const lastTimestamp = allEvents.length > 0 ? allEvents[allEvents.length - 1].timestamp : 0
-    const timeSpan = lastTimestamp - firstTimestamp || 1 // Avoid division by zero
+    const nowTimestamp = Math.floor(Date.now() / 1000)
+    const totalTimeSpan = nowTimestamp - firstTimestamp || 1 // Avoid division by zero
 
     // Calculate running balances
     let cumulativeSupplied = 0n
@@ -93,16 +154,15 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
         cumulativeCollateral = 0n // Reset for now
       }
 
-      // Estimate interest growth linearly over time
+      // Estimate interest growth linearly over time (with full precision)
       const timeElapsed = event.timestamp - firstTimestamp
-      const progressRatio = timeSpan > 0 ? timeElapsed / timeSpan : 0
-      
-      const estimatedSupplyInterest = currentSupplyInterest > 0n 
-        ? Number(formatBalance(BigInt(Math.floor(Number(currentSupplyInterest) * progressRatio))))
+      // Use BigInt for precision: (timeElapsed * finalInterest) / totalTimeSpan
+      const estimatedSupplyInterest = finalSupplyInterest > 0n && totalTimeSpan > 0
+        ? Number(formatTokenAmount((finalSupplyInterest * BigInt(timeElapsed)) / BigInt(totalTimeSpan)))
         : 0
       
-      const estimatedBorrowInterest = currentBorrowInterest > 0n
-        ? Number(formatBalance(BigInt(Math.floor(Number(currentBorrowInterest) * progressRatio))))
+      const estimatedBorrowInterest = finalBorrowInterest > 0n && totalTimeSpan > 0
+        ? Number(formatTokenAmount((finalBorrowInterest * BigInt(timeElapsed)) / BigInt(totalTimeSpan)))
         : 0
 
       const date = new Date(event.timestamp * 1000)
@@ -113,9 +173,9 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
         minute: '2-digit',
       })
 
-      const suppliedValue = Number(formatBalance(cumulativeSupplied))
-      const borrowedValue = Number(formatBalance(cumulativeBorrowed))
-      const collateralValue = Number(formatBalance(cumulativeCollateral))
+      const suppliedValue = Number(formatTokenAmount(cumulativeSupplied))
+      const borrowedValue = Number(formatTokenAmount(cumulativeBorrowed))
+      const collateralValue = Number(formatTokenAmount(cumulativeCollateral))
 
       return {
         date: dateStr,
@@ -136,27 +196,45 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
       const lastPoint = data[data.length - 1]
       const now = Math.floor(Date.now() / 1000)
       
-      // Only add "Now" if more than 1 hour has passed
-      if (now - lastPoint.timestamp > 3600) {
-        const currentSupplyInterestNum = Number(formatBalance(currentSupplyInterest))
-        const currentBorrowInterestNum = Number(formatBalance(currentBorrowInterest))
-        
-        data.push({
-          date: 'Now',
-          timestamp: now,
-          supplied: lastPoint.supplied,
-          borrowed: lastPoint.borrowed,
-          collateral: lastPoint.collateral,
-          supplyInterest: currentSupplyInterestNum,
-          borrowInterest: currentBorrowInterestNum,
-          totalSupplyValue: lastPoint.supplied + currentSupplyInterestNum,
-          totalDebtValue: lastPoint.borrowed + currentBorrowInterestNum,
-          netPosition: lastPoint.supplied + lastPoint.collateral + currentSupplyInterestNum - lastPoint.borrowed - currentBorrowInterestNum,
-        })
-      }
+      // Add "Now" point with real-time unvested interest
+      // Use formatTokenAmount to preserve full 18-decimal precision
+      const currentSupplyInterestNum = Number(formatTokenAmount(finalSupplyInterest))
+      const currentBorrowInterestNum = Number(formatTokenAmount(finalBorrowInterest))
+      
+      console.log('📊 Balance History - Now checkpoint:', {
+        realTimeSupplyInterest: realTimeSupplyInterest.toString(),
+        realTimeBorrowInterest: realTimeBorrowInterest.toString(),
+        currentSupplyInterest: currentSupplyInterest.toString(),
+        currentBorrowInterest: currentBorrowInterest.toString(),
+        finalSupplyInterest: finalSupplyInterest.toString(),
+        finalBorrowInterest: finalBorrowInterest.toString(),
+        currentSupplyInterestNum,
+        currentBorrowInterestNum,
+        supplied: lastPoint.supplied,
+        borrowed: lastPoint.borrowed,
+      })
+      
+      data.push({
+        date: 'Now',
+        timestamp: nowTimestamp,
+        supplied: lastPoint.supplied,
+        borrowed: lastPoint.borrowed,
+        collateral: lastPoint.collateral,
+        supplyInterest: currentSupplyInterestNum,
+        borrowInterest: currentBorrowInterestNum,
+        totalSupplyValue: lastPoint.supplied + currentSupplyInterestNum,
+        totalDebtValue: lastPoint.borrowed + currentBorrowInterestNum,
+        netPosition: lastPoint.supplied + lastPoint.collateral + currentSupplyInterestNum - lastPoint.borrowed - currentBorrowInterestNum,
+      })
     }
 
-    return data
+    // Calculate maximum interest value for the dedicated interest Y-axis
+    const maxInterest = Math.max(
+      ...data.map((point) => Math.max(point.supplyInterest || 0, point.borrowInterest || 0)),
+      0.0001 // Minimum scale to ensure visibility
+    )
+    
+    return { data, maxInterest }
   }, [
     address,
     supplyEvents,
@@ -166,7 +244,13 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
     nodeDeposits,
     nodeWithdrawals,
     userPosition,
+    realTimeSupplyInterest,
+    realTimeBorrowInterest,
   ])
+
+  // Extract data and maxInterest from the memoized result
+  const chartData = 'data' in chartDataWithScale ? chartDataWithScale.data : []
+  const maxInterest = 'maxInterest' in chartDataWithScale ? chartDataWithScale.maxInterest : 0.0001
 
   // Handle loading and empty states AFTER all hooks have been called
   if (!address || isLoading) {
@@ -208,7 +292,9 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
             height={80}
           />
           
+          {/* Main Y-axis for principal amounts */}
           <YAxis 
+            yAxisId="principal"
             stroke="#9CA3AF"
             style={{ fontSize: '12px' }}
             tickFormatter={(value) => `${value.toFixed(0)}`}
@@ -220,6 +306,22 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
             }}
           />
           
+          {/* Secondary Y-axis for interest amounts */}
+          <YAxis 
+            yAxisId="interest"
+            orientation="right"
+            stroke="#86EFAC"
+            style={{ fontSize: '12px' }}
+            tickFormatter={(value) => `${value.toFixed(6)}`}
+            domain={[0, maxInterest * 1.1]} // Add 10% padding
+            label={{ 
+              value: 'Interest (WOORT)', 
+              angle: 90, 
+              position: 'insideRight',
+              style: { fill: '#86EFAC', fontSize: '12px' }
+            }}
+          />
+          
           <Tooltip 
             contentStyle={{ 
               backgroundColor: '#1F2937', 
@@ -227,7 +329,10 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
               borderRadius: '0.5rem',
               color: '#F3F4F6'
             }}
-            formatter={(value: number) => [`${value.toFixed(8)} WOORT`, '']}
+            formatter={(value: number, name: string) => {
+              // Show full precision (18 decimals) for all values
+              return [`${value.toFixed(18)} WOORT`, '']
+            }}
             labelStyle={{ color: '#F3F4F6', marginBottom: '8px' }}
           />
           
@@ -238,6 +343,7 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
           
           {/* Supplied Amount (Green) */}
           <Line 
+            yAxisId="principal"
             type="monotone" 
             dataKey="supplied"
             stroke="#10B981"
@@ -249,6 +355,7 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
           
           {/* Collateral Value (Cyan) */}
           <Line 
+            yAxisId="principal"
             type="monotone" 
             dataKey="collateral"
             stroke="#06B6D4"
@@ -260,6 +367,7 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
           
           {/* Borrowed Amount (Orange) */}
           <Line 
+            yAxisId="principal"
             type="monotone" 
             dataKey="borrowed"
             stroke="#F97316"
@@ -271,6 +379,7 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
           
           {/* Supply Interest (Light Green) */}
           <Line 
+            yAxisId="interest"
             type="monotone" 
             dataKey="supplyInterest"
             stroke="#86EFAC"
@@ -283,6 +392,7 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
           
           {/* Borrow Interest (Light Red) */}
           <Line 
+            yAxisId="interest"
             type="monotone" 
             dataKey="borrowInterest"
             stroke="#FCA5A5"
@@ -295,6 +405,7 @@ export function UserPerformanceChart({ address }: UserPerformanceChartProps) {
           
           {/* Net Position (Purple) */}
           <Line 
+            yAxisId="principal"
             type="monotone" 
             dataKey="netPosition"
             stroke="#A855F7"

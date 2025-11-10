@@ -9,6 +9,8 @@ type EventType = 'supply' | 'withdraw' | 'borrow' | 'repay' | 'nodeDeposit' | 'n
 interface EventCardProps {
   type: EventType
   amount?: string
+  principalAmount?: string
+  interestAmount?: string
   nodeId?: string
   assetValue?: string
   timestamp: string
@@ -67,7 +69,7 @@ const eventConfig: Record<EventType, {
   }
 }
 
-export function EventCard({ type, amount, nodeId, assetValue, timestamp, transactionHash, explorerUrl = OORT_NETWORK.explorer }: EventCardProps) {
+export function EventCard({ type, amount, principalAmount, interestAmount, nodeId, assetValue, timestamp, transactionHash, explorerUrl = OORT_NETWORK.explorer }: EventCardProps) {
   const config = eventConfig[type]
   const Icon = config.icon
   
@@ -105,9 +107,16 @@ export function EventCard({ type, amount, nodeId, assetValue, timestamp, transac
             
             <div className="space-y-1">
               {amount && (
-                <p className="text-lg font-bold text-white">
-                  {formatBalance(BigInt(amount))} WOORT
-                </p>
+                <>
+                  <p className="text-lg font-bold text-white">
+                    {formatBalance(BigInt(amount))} WOORT
+                  </p>
+                  {type === 'withdraw' && principalAmount && interestAmount && (
+                    <p className="text-xs text-gray-400">
+                      Principal: {formatBalance(BigInt(principalAmount))} · Interest: {formatBalance(BigInt(interestAmount))} WOORT
+                    </p>
+                  )}
+                </>
               )}
               
               {nodeId && (

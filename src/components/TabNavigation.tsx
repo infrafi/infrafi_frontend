@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export type TabId = 'protocol' | 'user'
 
@@ -18,8 +18,29 @@ interface TabNavigationProps {
   children: (activeTab: TabId) => React.ReactNode
 }
 
+const TAB_STORAGE_KEY = 'infrafi_active_tab'
+
 export function TabNavigation({ tabs, defaultTab = 'protocol', onTabChange, children }: TabNavigationProps) {
+  // Start with defaultTab to avoid hydration mismatch
   const [activeTab, setActiveTab] = useState<TabId>(defaultTab)
+  const [isClient, setIsClient] = useState(false)
+
+  // Mark as client-side after mount to avoid hydration issues
+  useEffect(() => {
+    setIsClient(true)
+    // Load saved tab from localStorage after mount
+    const savedTab = localStorage.getItem(TAB_STORAGE_KEY)
+    if (savedTab && (savedTab === 'protocol' || savedTab === 'user')) {
+      setActiveTab(savedTab as TabId)
+    }
+  }, [])
+
+  // Save to localStorage whenever tab changes (only after client-side mounting)
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(TAB_STORAGE_KEY, activeTab)
+    }
+  }, [activeTab, isClient])
 
   const handleTabChange = (tabId: TabId) => {
     setActiveTab(tabId)

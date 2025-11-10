@@ -17,6 +17,9 @@ interface NodeManagementProps {
   onDepositNodes: (nodeAddresses: string[]) => Promise<void>
   onWithdrawNodes: (nodeAddresses: string[]) => Promise<void>
   txState: { isLoading: boolean; error: string | null }
+  borrowedAmount: bigint
+  totalCollateralValue: bigint
+  maxLTV: number  // Max LTV in basis points (e.g., 8000 = 80%)
 }
 
 // Reusable NodeCard component
@@ -83,10 +86,52 @@ export function NodeManagement({
   onRefreshDepositedNodes, 
   onDepositNodes, 
   onWithdrawNodes, 
-  txState 
+  txState,
+  borrowedAmount,
+  totalCollateralValue,
+  maxLTV
 }: NodeManagementProps) {
   const [selectedAvailableNodes, setSelectedAvailableNodes] = useState<string[]>([])
   const [selectedDepositedNodes, setSelectedDepositedNodes] = useState<string[]>([])
+  
+  // Calculate maximum withdrawable collateral
+  const calculateMaxWithdrawable = (): bigint => {
+    if (borrowedAmount === BigInt(0)) {
+      // No debt, can withdraw all collateral
+      return totalCollateralValue
+    }
+    
+    // Convert maxLTV from basis points to decimal (e.g., 8000 -> 0.8)
+    const maxLTVDecimal = maxLTV / 10000
+    
+    // Calculate minimum required collateral to maintain max LTV
+    // minRequiredCollateral = borrowedAmount / maxLTV
+    // Use BigInt arithmetic to avoid precision issues
+    const borrowedAmountScaled = borrowedAmount * BigInt(10000)
+    const minRequiredCollateral = borrowedAmountScaled / BigInt(maxLTV)
+    
+    // Calculate max withdrawable
+    const maxWithdrawable = totalCollateralValue > minRequiredCollateral 
+      ? totalCollateralValue - minRequiredCollateral 
+      : BigInt(0)
+    
+    return maxWithdrawable
+  }
+  
+  const maxWithdrawableCollateral = calculateMaxWithdrawable()
+  
+  // Calculate total value of selected nodes for withdrawal
+  const selectedNodesValue = selectedDepositedNodes.reduce((sum, nodeAddress) => {
+    const node = depositedNodes.find(n => n.nodeAddress === nodeAddress)
+    return sum + (node?.balance || BigInt(0))
+  }, BigInt(0))
+  
+  // Check if withdrawal would exceed limit
+  // Only check limit if there's debt; otherwise allow all withdrawals
+  const wouldExceedLimit = borrowedAmount > BigInt(0) && selectedNodesValue > maxWithdrawableCollateral
+  
+  // Check if withdrawal is allowed
+  const canWithdraw = selectedDepositedNodes.length > 0 && (borrowedAmount === BigInt(0) || selectedNodesValue <= maxWithdrawableCollateral)
   
   // Available nodes selection handlers
   const handleSelectAllAvailable = () => {
@@ -130,7 +175,7 @@ export function NodeManagement({
   }
 
   const handleWithdrawSelected = async () => {
-    if (selectedDepositedNodes.length > 0) {
+    if (selectedDepositedNodes.length > 0 && canWithdraw) {
       await onWithdrawNodes(selectedDepositedNodes)
       setSelectedDepositedNodes([])
     }
@@ -194,7 +239,7 @@ export function NodeManagement({
                 disabled={selectedAvailableNodes.length === 0 || txState.isLoading}
                 className="btn btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {txState.isLoading ? 'Processing...' : `Deposit ${selectedAvailableNodes.length} Nodes`}
+                {txState.isLoading && txState.operation === 'depositNodes' ? 'Processing...' : `Deposit ${selectedAvailableNodes.length} Nodes`}
               </button>
             </div>
           )}
@@ -250,7 +295,7 @@ export function NodeManagement({
               </span>
               <button
                 onClick={handleWithdrawSelected}
-                disabled={selectedDepositedNodes.length === 0 || txState.isLoading}
+                disabled={selectedDepositedNodes.length === 0 || txState.isLoading || !canWithdraw}
                 className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Withdraw {selectedDepositedNodes.length} Nodes
@@ -259,8 +304,51 @@ export function NodeManagement({
           )}
         </div>
         
+        {/* Max Withdrawable Info */}
+        {borrowedAmount > BigInt(0) && (
+          <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-300">Maximum Withdrawable Collateral:</span>
+              <span className="text-sm font-semibold text-blue-400">
+                {formatBalance(maxWithdrawableCollateral)} WOORT
+              </span>
+            </div>
+            {selectedDepositedNodes.length > 0 && (
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-500/20">
+                <span className="text-sm text-gray-300">Selected Nodes Value:</span>
+                <span className={`text-sm font-semibold ${wouldExceedLimit ? 'text-red-400' : 'text-green-400'}`}>
+                  {formatBalance(selectedNodesValue)} WOORT
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Warning Message */}
+        {wouldExceedLimit && selectedDepositedNodes.length > 0 && (
+          <div className="mb-4 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-red-400">Cannot Withdraw Selected Nodes</p>
+                <p className="text-sm mt-1 text-gray-300">
+                  Withdrawing these nodes would exceed your maximum withdrawable collateral limit. 
+                  The selected nodes are worth {formatBalance(selectedNodesValue)} WOORT, but you can only 
+                  withdraw up to {formatBalance(maxWithdrawableCollateral)} WOORT while maintaining your 
+                  current loan position.
+                </p>
+                <p className="text-sm mt-2 text-gray-400">
+                  <strong>Options:</strong> Repay some of your loan or select fewer/smaller nodes to withdraw.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <p className="text-sm text-gray-400 mb-4">
-          These nodes are currently deposited as collateral. You must repay all loans before withdrawing.
+          These nodes are currently deposited as collateral. {borrowedAmount > BigInt(0) 
+            ? 'You can withdraw up to the maximum withdrawable limit shown above.' 
+            : 'Select nodes to withdraw.'}
         </p>
 
         {isLoading.depositedNodes ? (

@@ -36,15 +36,40 @@ export function useUserTimeline(address: string | null) {
   })
 
   const userData = (data as any)?.user
+  const directData = data as any
+  
+  // Helper to merge and deduplicate events by ID
+  const mergeEvents = (userEvents: any[], directEvents: any[]) => {
+    const eventMap = new Map()
+    // Add direct events first (they might include events not yet in user entity)
+    directEvents?.forEach((event: any) => {
+      if (event.id) eventMap.set(event.id, event)
+    })
+    // Add user entity events (they take precedence if duplicates exist)
+    userEvents?.forEach((event: any) => {
+      if (event.id) eventMap.set(event.id, event)
+    })
+    return Array.from(eventMap.values()).sort((a: any, b: any) => 
+      Number(b.timestamp || 0) - Number(a.timestamp || 0)
+    )
+  }
+  
+  // Merge events from user entity and direct queries
+  const supplyEvents = mergeEvents(userData?.supplyEvents || [], directData?.supplyEvents || [])
+  const withdrawEvents = mergeEvents(userData?.withdrawEvents || [], directData?.withdrawEvents || [])
+  const borrowEvents = mergeEvents(userData?.borrowEvents || [], directData?.borrowEvents || [])
+  const repayEvents = mergeEvents(userData?.repayEvents || [], directData?.repayEvents || [])
+  const nodeDeposits = mergeEvents(userData?.nodeDeposits || [], directData?.nodeDepositEvents || [])
+  const nodeWithdrawals = mergeEvents(userData?.nodeWithdrawals || [], directData?.nodeWithdrawalEvents || [])
 
   return {
     user: userData || null,
-    supplyEvents: userData?.supplyEvents || [],
-    withdrawEvents: userData?.withdrawEvents || [],
-    borrowEvents: userData?.borrowEvents || [],
-    repayEvents: userData?.repayEvents || [],
-    nodeDeposits: userData?.nodeDeposits || [],
-    nodeWithdrawals: userData?.nodeWithdrawals || [],
+    supplyEvents,
+    withdrawEvents,
+    borrowEvents,
+    repayEvents,
+    nodeDeposits,
+    nodeWithdrawals,
     isLoading: loading,
     error: error?.message || null,
     refetch,

@@ -3,18 +3,17 @@
 import { useWeb3 } from '@/contexts/Web3Context'
 import { useInfraFi } from '@/hooks/useInfraFi'
 import { ProtocolStats } from '@/components/ProtocolStats'
+import { ProtocolParameters } from '@/components/ProtocolParameters'
 import { SupplyWithdraw } from '@/components/SupplyWithdraw'
 import { BorrowRepay } from '@/components/BorrowRepay'
 import { UserPosition } from '@/components/UserPosition'
 import { NodeManagement } from '@/components/NodeManagement'
-import { RevenueSharing } from '@/components/RevenueSharing'
 import { Analytics } from '@/components/Analytics'
-import { UserInsights } from '@/components/UserInsights'
 import { UserTimeline } from '@/components/UserTimeline'
-import { PerformanceAnalytics } from '@/components/PerformanceAnalytics'
+import { UserAnalytics } from '@/components/UserAnalytics'
 import { CollapsibleSection } from '@/components/CollapsibleSection'
 import { TabNavigation, TabId } from '@/components/TabNavigation'
-import { BarChart3, Share2, TrendingUp, User, Wallet, Server, Lightbulb, Clock, Building2, UserCircle, Target } from 'lucide-react'
+import { BarChart3, TrendingUp, User, Wallet, Server, Clock, Building2, UserCircle, BarChart, Settings } from 'lucide-react'
 
 export function Dashboard() {
   const { wallet, connectWallet } = useWeb3()
@@ -53,14 +52,17 @@ export function Dashboard() {
                 />
               </CollapsibleSection>
 
-              {/* Revenue Sharing Model */}
+              {/* Protocol Parameters */}
               <CollapsibleSection
-                title="Revenue Sharing Model"
-                subtitle="Learn how protocol revenue is distributed"
-                icon={<Share2 className="w-6 h-6 text-white" />}
+                title="Protocol Parameters"
+                subtitle="View lending parameters and interest rate model"
+                icon={<Settings className="w-6 h-6 text-white" />}
                 defaultOpen={false}
               >
-                <RevenueSharing />
+                <ProtocolParameters 
+                  protocolStats={infraFi.protocolStats}
+                  isLoading={infraFi.isLoading.protocolStats}
+                />
               </CollapsibleSection>
 
               {/* Analytics */}
@@ -108,7 +110,11 @@ export function Dashboard() {
                     icon={<User className="w-6 h-6 text-white" />}
                     defaultOpen={true}
                   >
-                    <UserPosition userPosition={infraFi.userPosition} isLoading={infraFi.isLoading.userPosition} />
+                    <UserPosition 
+                      userPosition={infraFi.userPosition}
+                      protocolStats={infraFi.protocolStats}
+                      isLoading={infraFi.isLoading.userPosition} 
+                    />
                   </CollapsibleSection>
 
                   {/* Trading Interface */}
@@ -155,30 +161,23 @@ export function Dashboard() {
                       onDepositNodes={infraFi.depositNodes}
                       onWithdrawNodes={infraFi.withdrawNodes}
                       txState={infraFi.txState}
+                      borrowedAmount={infraFi.userPosition?.borrowed || BigInt(0)}
+                      totalCollateralValue={infraFi.userPosition?.collateralValue || BigInt(0)}
+                      maxLTV={infraFi.protocolStats?.maxLTV || 8000}
                     />
                   </CollapsibleSection>
 
-                          {/* User Insights */}
-                          <CollapsibleSection
-                            title="Your Insights"
-                            subtitle="Personal statistics and performance"
-                            icon={<Lightbulb className="w-6 h-6 text-white" />}
-                            defaultOpen={false}
-                          >
-                            <UserInsights address={wallet.address} />
-                          </CollapsibleSection>
+                  {/* User Analytics */}
+                  <CollapsibleSection
+                    title="Your Analytics"
+                    subtitle="Comprehensive statistics, performance metrics, and insights"
+                    icon={<BarChart className="w-6 h-6 text-white" />}
+                    defaultOpen={false}
+                  >
+                    <UserAnalytics address={wallet.address} />
+                  </CollapsibleSection>
 
-                          {/* Performance Analytics */}
-                          <CollapsibleSection
-                            title="Performance Analytics"
-                            subtitle="Detailed ROI, profit/loss, and strategy analysis"
-                            icon={<Target className="w-6 h-6 text-white" />}
-                            defaultOpen={false}
-                          >
-                            <PerformanceAnalytics address={wallet.address} />
-                          </CollapsibleSection>
-
-                          {/* User Timeline */}
+                  {/* User Timeline */}
                           <CollapsibleSection
                             title="Transaction History"
                             subtitle="Complete activity timeline"

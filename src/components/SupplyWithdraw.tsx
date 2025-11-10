@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { UserPosition, ProtocolStats, TransactionState, TransactionFunction } from '@/types/contracts'
-import { formatBalance, formatAPY, validateAmount, bigIntToDecimal } from '@/lib/utils'
+import { formatBalance, validateAmount, bigIntToDecimal } from '@/lib/utils'
 import { Plus, Minus, AlertCircle } from 'lucide-react'
 
 interface SupplyWithdrawProps {
@@ -23,9 +23,14 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
     userPosition?.woortBalance || BigInt(0)
   )
   
+  // Calculate total liquidity (supplied + interest earned)
+  const totalLiquidity = userPosition 
+    ? userPosition.supplied + userPosition.supplyInterest 
+    : BigInt(0)
+  
   const withdrawValidation = validateAmount(
     withdrawAmount, 
-    userPosition?.supplied || BigInt(0)
+    totalLiquidity
   )
 
   const handleSupply = async () => {
@@ -50,7 +55,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
 
   const setMaxWithdraw = () => {
     if (userPosition) {
-      setWithdrawAmount(bigIntToDecimal(userPosition.supplied))
+      setWithdrawAmount(bigIntToDecimal(totalLiquidity))
     }
   }
 
@@ -142,25 +147,8 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
             disabled={!supplyValidation.isValid || !supplyAmount || txState.isLoading}
             className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {txState.isLoading ? 'Supplying...' : 'Supply WOORT'}
+            {txState.isLoading && txState.operation === 'supply' ? 'Supplying...' : 'Supply WOORT'}
           </button>
-
-          <div className="p-3 bg-gray-700/50 rounded-lg">
-            <div className="text-xs text-gray-400 space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Current APY:</span>
-                <span className="font-medium text-gray-300">
-                  {protocolStats ? formatAPY(protocolStats.supplyAPY) : '-.-%'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Your supplied:</span>
-                <span className="font-medium text-gray-300">
-                  {userPosition ? formatBalance(userPosition.supplied) : '0'} WOORT
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         /* Withdraw Tab */
@@ -182,7 +170,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-400">
-                  Supplied: {userPosition ? formatBalance(userPosition.supplied) : '0'} WOORT
+                  Supplied: {userPosition ? formatBalance(totalLiquidity) : '0'} WOORT
                 </span>
                 <button
                   onClick={setMaxWithdraw}
@@ -204,19 +192,8 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
             disabled={!withdrawValidation.isValid || !withdrawAmount || txState.isLoading}
             className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {txState.isLoading ? 'Withdrawing...' : 'Withdraw WOORT'}
+            {txState.isLoading && txState.operation === 'withdraw' ? 'Withdrawing...' : 'Withdraw WOORT'}
           </button>
-
-          <div className="p-3 bg-gray-700/50 rounded-lg">
-            <div className="text-xs text-gray-400 space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Available to withdraw:</span>
-                <span className="font-medium text-gray-300">
-                  {userPosition ? formatBalance(userPosition.supplied) : '0'} WOORT
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -295,6 +295,8 @@ export function UserTimeline({ address }: UserTimelineProps) {
               key={event.id}
               type={event.type}
               amount={event.amount}
+              principalAmount={event.principalAmount}
+              interestAmount={event.interestAmount}
               nodeId={event.nodeId}
               assetValue={event.assetValue}
               timestamp={event.timestamp}

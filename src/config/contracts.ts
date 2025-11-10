@@ -17,8 +17,8 @@ export const OORT_NETWORK = {
 } as const;
 
 export const PROTOCOL_PARAMS = {
-  // 🛡️ TESTNET DEPLOYMENT PARAMETERS - Block 893295 configuration
-  maxLTVPercent: 80, // 80% max LTV (testnet-friendly for easier testing)
+  // 🚀 NEXT DEPLOYMENT PARAMETERS - Updated for safer borrowing
+  maxLTVPercent: 75, // 75% max LTV (5% safety buffer before liquidation)
   liquidationThreshold: 80, // 80% liquidation threshold
   interestRateModel: {
     baseRate: 300, // 3% base rate (in basis points)
@@ -59,6 +59,15 @@ export const NODE_VAULT_ABI = [
   'function getBorrowerPosition(address user) external view returns (tuple(uint256 totalBorrowed, uint256 accruedInterest, uint256 lastBorrowTime, uint256 borrowIndexCheckpoint, tuple(uint256 nodeId, uint256 nodeType)[] depositedNodes) position)',
   'function getMaxBorrowAmount(address user) external view returns (uint256)',
   
+  // Interest calculation functions
+  'function calculateLenderInterest(address lender) external view returns (uint256)',
+  'function calculateBorrowerInterest(address borrower) external view returns (uint256)',
+  
+  // Rate index state variables
+  'function supplyIndex() external view returns (uint256)',
+  'function borrowIndex() external view returns (uint256)',
+  'function lastUpdateTimestamp() external view returns (uint256)',
+  
   // Node functions (updated: no nodeTypes array parameter)
   'function getNodeInfo(uint256 nodeId, uint256 nodeType) external view returns (uint256 nodeIdOut, uint256 nodeTypeOut, address depositor, uint256 depositTime, uint256 assetValue, address nodeProtocolContract, bool inVault)',
   'function depositNodes(uint256[] calldata nodeIds) external',
@@ -67,6 +76,16 @@ export const NODE_VAULT_ABI = [
   // Proxy management
   'function getAvailableProxy(uint256 nodeType) external view returns (address proxyAddress, bool needsNewProxy)',
   'function createProxyForProtocol(uint256 nodeType) external returns (address proxyAddress)',
+  
+  // Interest rate model
+  'function baseRatePerYear() external view returns (uint256)',
+  'function multiplierPerYear() external view returns (uint256)',
+  'function jumpMultiplierPerYear() external view returns (uint256)',
+  'function kink() external view returns (uint256)',
+  'function getJumpRateModel() external view returns (uint256, uint256, uint256, uint256)',
+  
+  // Liquidation
+  'function LIQUIDATION_THRESHOLD() external view returns (uint256)',
   
   // Revenue sharing
   'function deployerSharePercentage() external view returns (uint256)',

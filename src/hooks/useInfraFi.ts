@@ -12,7 +12,7 @@ export function useInfraFi() {
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null)
   const [userNodes, setUserNodes] = useState<OortNode[]>([])
   const [depositedNodes, setDepositedNodes] = useState<OortNode[]>([])
-  const [txState, setTxState] = useState<TransactionState>({ isLoading: false, error: null })
+  const [txState, setTxState] = useState<TransactionState>({ isLoading: false, error: null, operation: null })
   
   const [isLoading, setIsLoading] = useState({
     protocolStats: false,
@@ -36,6 +36,14 @@ export function useInfraFi() {
     let utilizationRate = 0
     let borrowAPY = 0
     let supplyAPY = 300 // Default 3% APY (300 basis points)
+    let maxLTV = 8000 // Default 80% (8000 basis points)
+    let liquidationThreshold = 8000 // Default 80% (8000 basis points)
+    let baseRatePerYear = 300 // Default 3% (300 basis points)
+    let multiplierPerYear = 800 // Default 8% (800 basis points)
+    let jumpMultiplierPerYear = 5000 // Default 50% (5000 basis points)
+    let kink = 8000 // Default 80% (8000 basis points)
+    let deployerSharePercentage = 15 // Default 15%
+    let protocolSharePercentage = 5 // Default 5%
     
     try {
       totalSupplied = BigInt(await contracts.nodeVault.getTotalSupplied())
@@ -105,6 +113,56 @@ export function useInfraFi() {
       supplyAPY = 300 // Default 3% APY (300 basis points)
     }
 
+    try {
+      maxLTV = Number(await contracts.nodeVault.maxLTV())
+      console.log('✅ maxLTV():', maxLTV, `(${maxLTV / 100}%)`)
+    } catch (error) {
+      console.warn('maxLTV() function failed:', error)
+      maxLTV = 8000 // Default 80% (8000 basis points)
+    }
+
+    try {
+      liquidationThreshold = Number(await contracts.nodeVault.LIQUIDATION_THRESHOLD())
+      console.log('✅ LIQUIDATION_THRESHOLD():', liquidationThreshold, `(${liquidationThreshold / 100}%)`)
+    } catch (error) {
+      console.warn('LIQUIDATION_THRESHOLD() function failed:', error)
+      liquidationThreshold = 8000 // Default 80% (8000 basis points)
+    }
+
+    try {
+      // Use getJumpRateModel() for efficiency (single call gets all params)
+      const rateModel = await contracts.nodeVault.getJumpRateModel()
+      baseRatePerYear = Number(rateModel[0])
+      multiplierPerYear = Number(rateModel[1])
+      jumpMultiplierPerYear = Number(rateModel[2])
+      kink = Number(rateModel[3])
+      console.log('✅ getJumpRateModel():', {
+        baseRatePerYear,
+        multiplierPerYear,
+        jumpMultiplierPerYear,
+        kink
+      })
+    } catch (error) {
+      console.warn('getJumpRateModel() function failed:', error)
+      // Keep default values set above
+    }
+
+    try {
+      deployerSharePercentage = Number(await contracts.nodeVault.deployerSharePercentage())
+      console.log('✅ deployerSharePercentage():', deployerSharePercentage)
+    } catch (error) {
+      console.warn('deployerSharePercentage() function failed:', error)
+      deployerSharePercentage = 15 // Default 15%
+    }
+
+    try {
+      protocolSharePercentage = Number(await contracts.nodeVault.protocolSharePercentage())
+      console.log('✅ protocolSharePercentage():', protocolSharePercentage)
+    } catch (error) {
+      console.warn('protocolSharePercentage() function failed:', error)
+      protocolSharePercentage = 5 // Default 5%
+    }
+
     // NOW calculate total lender interest after we have all the required values
     // Note: Contract doesn't track aggregate lender interest, so we calculate it
     // based on the relationship: supplyAPY = borrowAPY × utilizationRate × (1 - reserveFactor)
@@ -147,6 +205,14 @@ export function useInfraFi() {
       utilizationRate,
       supplyAPY,
       borrowAPY,
+      maxLTV,
+      liquidationThreshold,
+      baseRatePerYear,
+      multiplierPerYear,
+      jumpMultiplierPerYear,
+      kink,
+      deployerSharePercentage,
+      protocolSharePercentage,
     })
     
     setIsLoading(prev => ({ ...prev, protocolStats: false }))
@@ -177,11 +243,56 @@ export function useInfraFi() {
       // Use getLenderPosition to get user's supplied amount
       const lenderPosition = await contracts.nodeVault.getLenderPosition(wallet.address)
       supplied = BigInt(lenderPosition.totalSupplied || 0)
-      supplyInterest = BigInt(lenderPosition.accruedInterest || 0)
       console.log('✅ getLenderPosition():', {
-        totalSupplied: supplied.toString(),
-        accruedInterest: supplyInterest.toString()
+        totalSupplied: supplied.toString()
       })
+      
+      // Calculate current lender interest (includes accrued + current interest from index)
+      if (supplied > 0n) {
+        try {
+          // Get lender position details for debugging
+          const storedInterest = BigInt(lenderPosition.accruedInterest || 0)
+          console.log('📊 Lender Position Details:', {
+            totalSupplied: supplied.toString(),
+            storedAccruedInterest: storedInterest.toString(),
+            supplyIndexCheckpoint: lenderPosition.supplyIndexCheckpoint?.toString() || '0',
+            lastSupplyTime: lenderPosition.lastSupplyTime?.toString() || '0'
+          })
+          
+          // Get protocol state for debugging
+          try {
+            const supplyIndex = await contracts.nodeVault.supplyIndex()
+            const supplyAPY = await contracts.nodeVault.getCurrentSupplyAPY()
+            const lastUpdate = await contracts.nodeVault.lastUpdateTimestamp()
+            console.log('📈 Protocol State:', {
+              supplyIndex: supplyIndex.toString(),
+              supplyAPY: `${Number(supplyAPY) / 100}%`,
+              lastUpdateTimestamp: lastUpdate.toString(),
+              timeSinceUpdate: `${Math.floor(Date.now() / 1000 - Number(lastUpdate))} seconds`
+            })
+          } catch (stateError) {
+            console.warn('Failed to get protocol state:', stateError)
+          }
+          
+          // Calculate current interest
+          const calculatedInterest = await contracts.nodeVault.calculateLenderInterest(wallet.address)
+          supplyInterest = BigInt(calculatedInterest)
+          
+          console.log('✅ calculateLenderInterest():', {
+            calculatedInterest: supplyInterest.toString(),
+            storedInterest: storedInterest.toString(),
+            newInterest: (supplyInterest - storedInterest).toString(),
+            formatted: `${Number(supplyInterest) / 1e18} WOORT`
+          })
+        } catch (interestError) {
+          console.error('❌ calculateLenderInterest() failed:', interestError)
+          // Fallback to accrued interest if calculateLenderInterest fails
+          supplyInterest = BigInt(lenderPosition.accruedInterest || 0)
+          console.warn('Using stored accruedInterest as fallback:', supplyInterest.toString())
+        }
+      } else {
+        supplyInterest = BigInt(0)
+      }
     } catch (error) {
       console.warn('getLenderPosition() function failed:', error)
     }
@@ -190,7 +301,37 @@ export function useInfraFi() {
       // Use getBorrowerPosition to get borrower info
       const borrowerPosition = await contracts.nodeVault.getBorrowerPosition(wallet.address)
       const totalBorrowed = BigInt(borrowerPosition.totalBorrowed || 0)
-      borrowInterest = BigInt(borrowerPosition.accruedInterest || 0)
+      
+      // Calculate current borrower interest (includes accrued + current interest from index)
+      if (totalBorrowed > 0n) {
+        try {
+          // Get borrower position details for debugging
+          const storedInterest = BigInt(borrowerPosition.accruedInterest || 0)
+          console.log('📊 Borrower Position Details:', {
+            totalBorrowed: totalBorrowed.toString(),
+            storedAccruedInterest: storedInterest.toString()
+          })
+          
+          // Calculate current interest
+          const calculatedInterest = await contracts.nodeVault.calculateBorrowerInterest(wallet.address)
+          borrowInterest = BigInt(calculatedInterest)
+          
+          console.log('✅ calculateBorrowerInterest():', {
+            calculatedInterest: borrowInterest.toString(),
+            storedInterest: storedInterest.toString(),
+            newInterest: (borrowInterest - storedInterest).toString(),
+            formatted: `${Number(borrowInterest) / 1e18} WOORT`
+          })
+        } catch (interestError) {
+          console.error('❌ calculateBorrowerInterest() failed:', interestError)
+          // Fallback to accrued interest if calculateBorrowerInterest fails
+          borrowInterest = BigInt(borrowerPosition.accruedInterest || 0)
+          console.warn('Using stored accruedInterest as fallback:', borrowInterest.toString())
+        }
+      } else {
+        borrowInterest = BigInt(0)
+      }
+      
       borrowed = totalBorrowed + borrowInterest
       console.log('✅ getBorrowerPosition():', {
         totalBorrowed: totalBorrowed.toString(),
@@ -402,11 +543,31 @@ export function useInfraFi() {
     }
   }, [contracts.nodeVault, contracts.oortNode, wallet.address])
 
+  // Helper function to check if error is a user rejection
+  const isUserRejection = (error: any): boolean => {
+    if (!error) return false
+    
+    const errorMessage = error.message?.toLowerCase() || ''
+    const errorCode = error.code
+    const errorReason = error.reason?.toLowerCase() || ''
+    
+    // Check for common user rejection patterns
+    return (
+      errorCode === 'ACTION_REJECTED' ||
+      errorCode === 4001 ||
+      errorMessage.includes('user rejected') ||
+      errorMessage.includes('user denied') ||
+      errorMessage.includes('user cancelled') ||
+      errorMessage.includes('rejected') ||
+      errorReason.includes('rejected')
+    )
+  }
+
   // Transaction functions
   const supply = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
 
-    setTxState({ isLoading: true, error: null })
+    setTxState({ isLoading: true, error: null, operation: 'supply' })
     try {
       const parsedAmount = parseBalance(amount)
       
@@ -423,17 +584,22 @@ export function useInfraFi() {
       // Refresh data
       await Promise.all([fetchProtocolStats(), fetchUserPosition()])
     } catch (error: any) {
-      setTxState({ isLoading: false, error: error.message || 'Transaction failed' })
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
       return
     }
     
-    setTxState({ isLoading: false, error: null })
+    setTxState({ isLoading: false, error: null, operation: null })
   }
 
   const withdraw = async (amount: string) => {
     if (!contracts.nodeVault || !amount) return
 
-    setTxState({ isLoading: true, error: null })
+    setTxState({ isLoading: true, error: null, operation: 'withdraw' })
     try {
       const parsedAmount = parseBalance(amount)
       const tx = await contracts.nodeVault.withdraw(parsedAmount)
@@ -441,17 +607,22 @@ export function useInfraFi() {
       
       await Promise.all([fetchProtocolStats(), fetchUserPosition()])
     } catch (error: any) {
-      setTxState({ isLoading: false, error: error.message || 'Transaction failed' })
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
       return
     }
     
-    setTxState({ isLoading: false, error: null })
+    setTxState({ isLoading: false, error: null, operation: null })
   }
 
   const borrow = async (amount: string) => {
     if (!contracts.nodeVault || !amount) return
 
-    setTxState({ isLoading: true, error: null })
+    setTxState({ isLoading: true, error: null, operation: 'borrow' })
     try {
       const parsedAmount = parseBalance(amount)
       const tx = await contracts.nodeVault.borrow(parsedAmount)
@@ -459,17 +630,22 @@ export function useInfraFi() {
       
       await Promise.all([fetchProtocolStats(), fetchUserPosition()])
     } catch (error: any) {
-      setTxState({ isLoading: false, error: error.message || 'Transaction failed' })
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
       return
     }
     
-    setTxState({ isLoading: false, error: null })
+    setTxState({ isLoading: false, error: null, operation: null })
   }
 
   const repay = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
 
-    setTxState({ isLoading: true, error: null })
+    setTxState({ isLoading: true, error: null, operation: 'repay' })
     try {
       const parsedAmount = parseBalance(amount)
       
@@ -485,18 +661,23 @@ export function useInfraFi() {
       
       await Promise.all([fetchProtocolStats(), fetchUserPosition()])
     } catch (error: any) {
-      setTxState({ isLoading: false, error: error.message || 'Transaction failed' })
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
       return
     }
     
-    setTxState({ isLoading: false, error: null })
+    setTxState({ isLoading: false, error: null, operation: null })
   }
 
   // Node deposit/withdraw functions
   const depositNodes = async (nodeAddresses: string[]) => {
     if (!contracts.nodeVault || !contracts.oortNode || !contracts.proxyManager || nodeAddresses.length === 0) return
 
-    setTxState({ isLoading: true, error: null })
+    setTxState({ isLoading: true, error: null, operation: 'depositNodes' })
     try {
       const OORT_PROTOCOL_TYPE = 1
       
@@ -545,17 +726,22 @@ export function useInfraFi() {
       console.log('✅ Data refresh complete')
     } catch (error: any) {
       console.error('❌ Node deposit failed:', error)
-      setTxState({ isLoading: false, error: error.message || 'Node deposit failed' })
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Node deposit failed', operation: null })
       return
     }
     
-    setTxState({ isLoading: false, error: null })
+    setTxState({ isLoading: false, error: null, operation: null })
   }
 
   const withdrawNodes = async (nodeAddresses: string[]) => {
     if (!contracts.nodeVault || nodeAddresses.length === 0) return
 
-    setTxState({ isLoading: true, error: null })
+    setTxState({ isLoading: true, error: null, operation: 'withdrawNodes' })
     try {
       // Convert addresses to node IDs
       const nodeIds = nodeAddresses.map(addr => BigInt(addr))
@@ -573,11 +759,16 @@ export function useInfraFi() {
       await Promise.all([fetchProtocolStats(), fetchUserPosition(), fetchUserNodes(), fetchDepositedNodes()])
       console.log('✅ Data refresh complete')
     } catch (error: any) {
-      setTxState({ isLoading: false, error: error.message || 'Node withdrawal failed' })
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Node withdrawal failed', operation: null })
       return
     }
     
-    setTxState({ isLoading: false, error: null })
+    setTxState({ isLoading: false, error: null, operation: null })
   }
 
   // Auto-fetch data when contracts are available

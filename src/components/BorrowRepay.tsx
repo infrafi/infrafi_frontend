@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { UserPosition, ProtocolStats, TransactionState, TransactionFunction } from '@/types/contracts'
-import { formatBalance, formatAPY, validateAmount, calculateHealthFactor } from '@/lib/utils'
-import { CreditCard, RefreshCw, AlertCircle } from 'lucide-react'
+import { formatBalance, validateAmount } from '@/lib/utils'
+import { CreditCard, RefreshCw, AlertCircle, Info } from 'lucide-react'
 
 interface BorrowRepayProps {
   userPosition: UserPosition | null
@@ -56,10 +56,6 @@ export function BorrowRepay({ userPosition, protocolStats, txState, onBorrow, on
       setRepayAmount(formatBalance(userPosition.borrowed))
     }
   }
-
-  const currentHealthFactor = userPosition 
-    ? calculateHealthFactor(userPosition.maxBorrowAmount, userPosition.borrowed)
-    : Infinity
 
   return (
     <div className="card">
@@ -139,9 +135,27 @@ export function BorrowRepay({ userPosition, protocolStats, txState, onBorrow, on
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-400">
-                  Available: {userPosition ? formatBalance(userPosition.maxBorrowAmount) : '0'} WOORT
-                </span>
+                <div className="flex items-center space-x-1">
+                  <span className="text-gray-400">
+                    Available: {userPosition ? formatBalance(userPosition.maxBorrowAmount) : '0'} WOORT
+                  </span>
+                  <div className="group relative">
+                    <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-300 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-gray-700">
+                      <div className="text-left">
+                        <p className="font-semibold mb-1">Max Borrow Calculation:</p>
+                        <p className="text-gray-300">Collateral Value × Max LTV - Current Debt</p>
+                        {userPosition && protocolStats && (
+                          <div className="mt-2 pt-2 border-t border-gray-700 text-gray-400">
+                            <p>{formatBalance(userPosition.collateralValue)} × {(protocolStats.maxLTV / 100).toFixed(0)}% - {formatBalance(userPosition.borrowed)}</p>
+                            <p>= {formatBalance(userPosition.maxBorrowAmount)} WOORT</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={setMaxBorrow}
                   className="text-primary-400 hover:text-primary-300 font-medium disabled:opacity-50"
@@ -163,31 +177,8 @@ export function BorrowRepay({ userPosition, protocolStats, txState, onBorrow, on
             disabled={!borrowValidation.isValid || !borrowAmount || !hasCollateral || txState.isLoading}
             className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {txState.isLoading ? 'Borrowing...' : 'Borrow WOORT'}
+            {txState.isLoading && txState.operation === 'borrow' ? 'Borrowing...' : 'Borrow WOORT'}
           </button>
-
-          <div className="p-3 bg-gray-700/50 rounded-lg">
-            <div className="text-xs text-gray-400 space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Borrow APY:</span>
-                <span className="font-medium text-gray-300">
-                  {protocolStats ? formatAPY(protocolStats.borrowAPY) : '-.-%'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Your debt:</span>
-                <span className="font-medium text-gray-300">
-                  {userPosition ? formatBalance(userPosition.borrowed) : '0'} WOORT
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Health Factor:</span>
-                <span className={`font-medium ${currentHealthFactor < 1.5 ? 'text-red-400' : 'text-green-400'}`}>
-                  {currentHealthFactor === Infinity ? '∞' : currentHealthFactor.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         /* Repay Tab */
@@ -209,9 +200,29 @@ export function BorrowRepay({ userPosition, protocolStats, txState, onBorrow, on
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-400">
-                  Balance: {userPosition ? formatBalance(userPosition.woortBalance) : '0'} WOORT
-                </span>
+                <div className="flex items-center space-x-1">
+                  <span className="text-gray-400">
+                    Total debt: {userPosition ? formatBalance(userPosition.borrowed) : '0'} WOORT
+                  </span>
+                  <div className="group relative">
+                    <Info className="w-3.5 h-3.5 text-gray-500 hover:text-gray-300 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-gray-700">
+                      <div className="text-left">
+                        <p className="font-semibold mb-1">Repayment:</p>
+                        <p className="text-gray-300">You can repay up to your total debt</p>
+                        {userPosition && (
+                          <div className="mt-2 pt-2 border-t border-gray-700 text-gray-400">
+                            <p>Principal: {formatBalance(userPosition.borrowed - userPosition.borrowInterest)}</p>
+                            <p>Interest: {formatBalance(userPosition.borrowInterest)}</p>
+                            <p className="font-semibold text-white mt-1">Total: {formatBalance(userPosition.borrowed)}</p>
+                            <p className="mt-2 text-xs text-gray-500">Your balance: {formatBalance(userPosition.woortBalance)}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={setMaxRepay}
                   className="text-primary-400 hover:text-primary-300 font-medium disabled:opacity-50"
@@ -233,19 +244,8 @@ export function BorrowRepay({ userPosition, protocolStats, txState, onBorrow, on
             disabled={!repayValidation.isValid || !repayAmount || !hasDebt || txState.isLoading}
             className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {txState.isLoading ? 'Repaying...' : 'Repay WOORT'}
+            {txState.isLoading && txState.operation === 'repay' ? 'Repaying...' : 'Repay WOORT'}
           </button>
-
-          <div className="p-3 bg-gray-700/50 rounded-lg">
-            <div className="text-xs text-gray-400 space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Total debt:</span>
-                <span className="font-medium text-gray-300">
-                  {userPosition ? formatBalance(userPosition.borrowed) : '0'} WOORT
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -1,15 +1,16 @@
 'use client'
 
-import { UserPosition as UserPositionType } from '@/types/contracts'
-import { formatBalance, calculateHealthFactor } from '@/lib/utils'
+import { UserPosition as UserPositionType, ProtocolStats } from '@/types/contracts'
+import { formatBalance, formatTokenAmount, calculateLTV } from '@/lib/utils'
 import { DollarSign, Wallet, CreditCard, Package, AlertTriangle, AlertCircle } from 'lucide-react'
 
 interface UserPositionProps {
   userPosition: UserPositionType | null
+  protocolStats: ProtocolStats | null
   isLoading: boolean
 }
 
-export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
+export function UserPosition({ userPosition, protocolStats, isLoading }: UserPositionProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -22,16 +23,23 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
     )
   }
 
-  const healthFactor = userPosition 
-    ? calculateHealthFactor(userPosition.collateralValue, userPosition.borrowed, 80)
-    : Infinity
+  const ltv = userPosition 
+    ? calculateLTV(userPosition.collateralValue, userPosition.borrowed)
+    : 0
 
   const borrowed = userPosition ? BigInt(userPosition.borrowed) : 0n
   const hasDebt = borrowed > 0n
   
-  // Health factor thresholds
-  const isCritical = hasDebt && healthFactor < 1.1
-  const isWarning = hasDebt && healthFactor >= 1.1 && healthFactor < 1.3
+  // Get maxLTV and liquidation threshold from on-chain (in basis points), convert to percentage
+  const maxLTVPercent = protocolStats?.maxLTV ? protocolStats.maxLTV / 100 : 75
+  const liquidationThreshold = protocolStats?.liquidationThreshold ? protocolStats.liquidationThreshold / 100 : 80
+  
+  // LTV thresholds (higher LTV = more risk)
+  // Warn at 90% of maxLTV, critical at 98% of maxLTV
+  const warningThreshold = maxLTVPercent * 0.90
+  const criticalThreshold = maxLTVPercent * 0.98
+  const isCritical = hasDebt && ltv >= criticalThreshold
+  const isWarning = hasDebt && ltv >= warningThreshold && ltv < criticalThreshold
   const showAlert = isCritical || isWarning
 
   return (
@@ -55,34 +63,38 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
               <h3 className={`text-lg font-bold mb-1 ${
                 isCritical ? 'text-red-400' : 'text-yellow-400'
               }`}>
-                {isCritical ? '🚨 Critical: Liquidation Risk!' : '⚠️ Warning: Low Health Factor'}
+                {isCritical ? '🚨 Critical: Liquidation Risk!' : '⚠️ Warning: High LTV Ratio'}
               </h3>
               <p className="text-sm text-gray-300 mb-2">
                 {isCritical 
-                  ? `Your health factor is ${healthFactor.toFixed(2)}. You are at high risk of liquidation!`
-                  : `Your health factor is ${healthFactor.toFixed(2)}. Consider repaying debt or adding collateral.`
+                  ? `Your LTV is ${ltv.toFixed(2)}%. You are at high risk of liquidation!`
+                  : `Your LTV is ${ltv.toFixed(2)}%. Consider repaying debt or adding collateral.`
                 }
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="bg-gray-800/50 rounded p-2">
-                  <p className="text-gray-400 text-xs">Current Health Factor</p>
+                  <p className="text-gray-400 text-xs">Current LTV</p>
                   <p className={`font-bold ${isCritical ? 'text-red-400' : 'text-yellow-400'}`}>
-                    {healthFactor.toFixed(2)}
+                    {ltv.toFixed(2)}%
                   </p>
                 </div>
                 <div className="bg-gray-800/50 rounded p-2">
                   <p className="text-gray-400 text-xs">Safe Threshold</p>
-                  <p className="font-bold text-green-400">≥ 1.30</p>
+                  <p className="font-bold text-green-400">{'< '}{warningThreshold.toFixed(0)}%</p>
                 </div>
                 <div className="bg-gray-800/50 rounded p-2">
-                  <p className="text-gray-400 text-xs">Liquidation Point</p>
-                  <p className="font-bold text-red-400">{'< 1.00'}</p>
+                  <p className="text-gray-400 text-xs">Maximum LTV</p>
+                  <p className="font-bold text-orange-400">{maxLTVPercent.toFixed(0)}%</p>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <p className="text-gray-400 text-xs">Liquidation</p>
+                  <p className="font-bold text-red-400">{liquidationThreshold.toFixed(0)}%</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-gray-700">
                 <p className="text-xs text-gray-400 mb-2">Recommended actions:</p>
                 <ul className="text-xs text-gray-300 space-y-1 list-disc list-inside">
-                  <li>Repay part of your debt to increase health factor</li>
+                  <li>Repay part of your debt to reduce your LTV ratio</li>
                   <li>Deposit more node collateral to increase your position</li>
                   <li>Monitor your position closely to avoid liquidation</li>
                 </ul>
@@ -122,7 +134,7 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
               {userPosition ? formatBalance(userPosition.supplied) : '0'}
             </p>
             <p className="text-xs text-gray-500">
-              Interest: {userPosition ? formatBalance(userPosition.supplyInterest) : '0'} WOORT
+              Interest: {userPosition ? formatTokenAmount(userPosition.supplyInterest) : '0.000000000000000000'} WOORT
             </p>
           </div>
         </div>
@@ -155,10 +167,10 @@ export function UserPosition({ userPosition, isLoading }: UserPositionProps) {
           <div>
             <p className="text-sm font-medium text-gray-400">Borrowed</p>
             <p className="text-2xl font-bold text-white">
-              {userPosition ? formatBalance(userPosition.borrowed) : '0'}
+              {userPosition ? formatBalance(userPosition.borrowed - userPosition.borrowInterest) : '0'}
             </p>
             <p className="text-xs text-gray-500">
-              Interest: {userPosition ? formatBalance(userPosition.borrowInterest) : '0'} • Health: {healthFactor === Infinity ? '∞' : healthFactor.toFixed(2)}
+              Interest: {userPosition ? formatTokenAmount(userPosition.borrowInterest) : '0.000000000000000000'} • LTV: {ltv.toFixed(2)}%
             </p>
           </div>
         </div>

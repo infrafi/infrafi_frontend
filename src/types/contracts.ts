@@ -16,6 +16,14 @@ export interface ProtocolStats {
   utilizationRate: number;
   supplyAPY: number;
   borrowAPY: number;
+  maxLTV: number;  // Maximum LTV in basis points (e.g., 8000 = 80%)
+  liquidationThreshold: number;  // Liquidation threshold in basis points
+  baseRatePerYear: number;  // Base interest rate in basis points
+  multiplierPerYear: number;  // Rate multiplier before kink in basis points
+  jumpMultiplierPerYear: number;  // Rate multiplier after kink in basis points
+  kink: number;  // Utilization rate where jump occurs in basis points
+  deployerSharePercentage: number;  // Deployer revenue share percentage
+  protocolSharePercentage: number;  // Protocol revenue share percentage
 }
 
 export interface UserPosition {
@@ -48,6 +56,7 @@ export interface OortNode {
 export interface TransactionState {
   isLoading: boolean;
   error: string | null;
+  operation?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'depositNodes' | 'withdrawNodes' | null;
 }
 
 export type TransactionFunction = (amount: string) => Promise<void>;

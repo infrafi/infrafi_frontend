@@ -1,8 +1,9 @@
 'use client'
 
 import { useUserPosition, useUserTimeline } from '@/hooks/useSubgraph'
+import { useInfraFi } from '@/hooks/useInfraFi'
 import { formatBalance } from '@/lib/utils'
-import { TrendingUp, TrendingDown, DollarSign, Percent, Target, Award, BarChart3, PieChart } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, Percent, Target, Award, BarChart3, PieChart, Info } from 'lucide-react'
 
 interface PerformanceAnalyticsProps {
   address: string | null
@@ -11,6 +12,7 @@ interface PerformanceAnalyticsProps {
 export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
   const { userPosition, isLoading: positionLoading } = useUserPosition(address)
   const { supplyEvents, withdrawEvents, borrowEvents, repayEvents, isLoading: eventsLoading } = useUserTimeline(address)
+  const { userPosition: realTimeUserPosition } = useInfraFi()
 
   if (!address) {
     return null
@@ -41,8 +43,9 @@ export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
   // Calculate performance metrics
   const totalSupplied = BigInt(userPosition.totalSupplied || 0)
   const totalBorrowed = BigInt(userPosition.totalBorrowed || 0)
-  const supplyInterest = BigInt(userPosition.totalSupplyInterest || 0)
-  const borrowInterest = BigInt(userPosition.totalBorrowInterest || 0)
+  // Use real-time interest from useInfraFi if available, otherwise fall back to GraphQL data
+  const supplyInterest = realTimeUserPosition?.supplyInterest || BigInt(userPosition.totalSupplyInterest || 0)
+  const borrowInterest = realTimeUserPosition?.borrowInterest || BigInt(userPosition.totalBorrowInterest || 0)
   const collateralValue = BigInt(userPosition.collateralValue || 0)
 
   // Net profit/loss
@@ -121,10 +124,10 @@ export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
             )}
           </div>
           <p className={`text-2xl font-bold ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
-            {isProfitable ? '+' : ''}{formatBalance(netProfitLoss)} WOORT
+            {formatBalance(netProfitLoss)} WOORT
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Interest Earned: {formatBalance(supplyInterest)} | Paid: {formatBalance(borrowInterest)}
+            Interest Earned: {formatBalance(supplyInterest)} | Owed: {formatBalance(borrowInterest)}
           </p>
         </div>
 
@@ -159,7 +162,16 @@ export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
         {/* Leverage Ratio */}
         <div className="bg-gradient-to-br from-orange-900/20 to-gray-800 rounded-lg p-4 border border-orange-900/30">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-400">Leverage Ratio</p>
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-gray-400">Leverage Ratio</p>
+              <div className="group relative">
+                <Info className="w-4 h-4 text-gray-500 hover:text-gray-300 cursor-help" />
+                <div className="absolute bottom-full right-0 transform mb-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-gray-700 max-w-xs">
+                  Total assets divided by equity (equity = assets - debts). 1.0x means no leverage. Higher leverage increases risk.
+                  <div className="absolute top-full right-4 transform w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </div>
             <Target className="w-5 h-5 text-orange-400" />
           </div>
           <p className="text-2xl font-bold text-white">
@@ -173,7 +185,16 @@ export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
         {/* Capital Efficiency */}
         <div className="bg-gradient-to-br from-cyan-900/20 to-gray-800 rounded-lg p-4 border border-cyan-900/30">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-400">Capital Efficiency</p>
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-gray-400">Capital Efficiency</p>
+              <div className="group relative">
+                <Info className="w-4 h-4 text-gray-500 hover:text-gray-300 cursor-help" />
+                <div className="absolute bottom-full right-0 transform mb-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-gray-700 max-w-xs">
+                  Percentage of collateral value that has been borrowed. 0% means no borrowed funds. Higher values indicate more efficient use of collateral.
+                  <div className="absolute top-full right-4 transform w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </div>
             <PieChart className="w-5 h-5 text-cyan-400" />
           </div>
           <p className="text-2xl font-bold text-white">
@@ -295,7 +316,7 @@ export function PerformanceAnalytics({ address }: PerformanceAnalyticsProps) {
               {leverageRatio > 2.5 ? (
                 <li className="flex items-start">
                   <span className="text-orange-400 mr-2">!</span>
-                  <span>High leverage ratio of {leverageRatio.toFixed(8)}x - monitor your health factor closely</span>
+                  <span>High leverage ratio of {leverageRatio.toFixed(8)}x - monitor your LTV ratio closely</span>
                 </li>
               ) : (
                 <li className="flex items-start">
