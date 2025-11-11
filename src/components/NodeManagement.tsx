@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { OortNode } from '@/types/contracts'
+import { OortNode, TransactionState } from '@/types/contracts'
 import { formatBalance } from '@/lib/utils'
 import { Server, RefreshCw, AlertCircle } from 'lucide-react'
 
@@ -16,7 +16,7 @@ interface NodeManagementProps {
   onRefreshDepositedNodes: () => void
   onDepositNodes: (nodeAddresses: string[]) => Promise<void>
   onWithdrawNodes: (nodeAddresses: string[]) => Promise<void>
-  txState: { isLoading: boolean; error: string | null }
+  txState: TransactionState
   borrowedAmount: bigint
   totalCollateralValue: bigint
   maxLTV: number  // Max LTV in basis points (e.g., 8000 = 80%)

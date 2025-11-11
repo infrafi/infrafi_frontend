@@ -119,6 +119,7 @@ const GET_ALL_EVENTS = gql`
       user { address }
       nodeId
       nodeType
+      assetValue
       timestamp
       blockNumber
       transactionHash
@@ -142,8 +143,7 @@ const GET_INTEREST_RATE_SNAPSHOTS = gql`
       utilizationRate
       borrowIndex
       supplyIndex
-      totalSupplied
-      totalBorrowed
+      totalLiquidity
       totalDebt
     }
   }
@@ -171,8 +171,7 @@ interface RateSnapshot {
   utilizationRate: string
   borrowIndex: string
   supplyIndex: string
-  totalSupplied: string
-  totalBorrowed: string
+  totalLiquidity: string
   totalDebt: string
 }
 
@@ -196,8 +195,7 @@ interface CombinedData {
   supplyIndexBefore: string
   borrowIndexAfter: string
   supplyIndexAfter: string
-  totalSupplied: string
-  totalBorrowed: string
+  totalLiquidity: string
   totalDebt: string
   secondsSinceLastEvent: number
 }
@@ -324,6 +322,7 @@ function normalizeEvents(data: any): Event[] {
       user: e.user.address,
       nodeId: e.nodeId,
       nodeType: e.nodeType,
+      assetValue: e.assetValue,
     })
   })
   
@@ -409,8 +408,7 @@ function combineData(events: Event[], snapshots: RateSnapshot[]): CombinedData[]
       supplyIndexBefore: before ? formatIndex(before.supplyIndex) : 'N/A',
       borrowIndexAfter: after ? formatIndex(after.borrowIndex) : 'N/A',
       supplyIndexAfter: after ? formatIndex(after.supplyIndex) : 'N/A',
-      totalSupplied: after ? formatAmount(after.totalSupplied) : (before ? formatAmount(before.totalSupplied) : 'N/A'),
-      totalBorrowed: after ? formatAmount(after.totalBorrowed) : (before ? formatAmount(before.totalBorrowed) : 'N/A'),
+      totalLiquidity: after ? formatAmount(after.totalLiquidity) : (before ? formatAmount(before.totalLiquidity) : 'N/A'),
       totalDebt: after ? formatAmount(after.totalDebt) : (before ? formatAmount(before.totalDebt) : 'N/A'),
       secondsSinceLastEvent: secondsSinceLastEvent,
     })
@@ -443,8 +441,7 @@ function exportToCSV(data: CombinedData[], filename: string): void {
     'Supply Index (Before)',
     'Borrow Index (After)',
     'Supply Index (After)',
-    'Total Supplied',
-    'Total Borrowed',
+    'Total Liquidity',
     'Total Debt',
     'Seconds Since Last Event',
   ]
@@ -473,8 +470,7 @@ function exportToCSV(data: CombinedData[], filename: string): void {
       row.supplyIndexBefore,
       row.borrowIndexAfter,
       row.supplyIndexAfter,
-      row.totalSupplied,
-      row.totalBorrowed,
+      row.totalLiquidity,
       row.totalDebt,
       row.secondsSinceLastEvent,
     ]
@@ -524,8 +520,7 @@ async function main() {
       utilizationRate: s.utilizationRate,
       borrowIndex: s.borrowIndex || '1000000000000000000', // Default 1e18 if not available
       supplyIndex: s.supplyIndex || '1000000000000000000', // Default 1e18 if not available
-      totalSupplied: s.totalSupplied,
-      totalBorrowed: s.totalBorrowed,
+      totalLiquidity: s.totalLiquidity,
       totalDebt: s.totalDebt, // Real debt with accrued compound interest from getTotalDebt()
     }))
     console.log(`✅ Found ${snapshots.length} rate snapshots\n`)

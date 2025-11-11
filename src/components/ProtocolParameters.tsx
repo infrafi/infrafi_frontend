@@ -173,7 +173,7 @@ export function ProtocolParameters({ protocolStats, isLoading }: ProtocolParamet
               </p>
               <p className="mt-2">• <span className="font-mono">If Utilization {'>'} {(kinkPoint / 100).toFixed(0)}%:</span></p>
               <p className="ml-4 font-mono text-gray-400">
-                Rate = Base + Multiplier + ({(jumpRate / 100).toFixed(0)}% × (Utilization - {(kinkPoint / 100).toFixed(0)}%))
+                Rate = {(baseRate / 100).toFixed(2)}% + ({(multiplier / 100).toFixed(2)}% × {(kinkPoint / 100).toFixed(0)}%) + ({(jumpRate / 100).toFixed(0)}% × (Utilization - {(kinkPoint / 100).toFixed(0)}%))
               </p>
             </div>
           </div>
