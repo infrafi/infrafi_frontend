@@ -650,7 +650,7 @@ export function useInfraFi() {
   const supplyNative = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
 
-    setTxState({ isLoading: true, error: null, operation: 'supply' })
+    setTxState({ isLoading: true, error: null, operation: 'supply', currentStep: 1, totalSteps: 3, stepDescription: 'Wrapping OORT to WOORT' })
     try {
       const parsedAmount = parseBalance(amount)
       
@@ -659,10 +659,12 @@ export function useInfraFi() {
       await wrapTx.wait()
       
       // Step 2: Approve vault to spend WOORT
+      setTxState({ isLoading: true, error: null, operation: 'supply', currentStep: 2, totalSteps: 3, stepDescription: 'Approving vault to spend WOORT' })
       const approveTx = await contracts.woort.approve(contracts.nodeVault.target, parsedAmount)
       await approveTx.wait()
       
       // Step 3: Supply WOORT to vault
+      setTxState({ isLoading: true, error: null, operation: 'supply', currentStep: 3, totalSteps: 3, stepDescription: 'Supplying WOORT to vault' })
       const supplyTx = await contracts.nodeVault.supply(parsedAmount)
       await supplyTx.wait()
       
@@ -684,7 +686,7 @@ export function useInfraFi() {
   const withdrawNative = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
 
-    setTxState({ isLoading: true, error: null, operation: 'withdraw' })
+    setTxState({ isLoading: true, error: null, operation: 'withdraw', currentStep: 1, totalSteps: 2, stepDescription: 'Withdrawing WOORT from vault' })
     try {
       const parsedAmount = parseBalance(amount)
       
@@ -693,6 +695,7 @@ export function useInfraFi() {
       await withdrawTx.wait()
       
       // Step 2: Unwrap WOORT to native OORT
+      setTxState({ isLoading: true, error: null, operation: 'withdraw', currentStep: 2, totalSteps: 2, stepDescription: 'Unwrapping WOORT to OORT' })
       const unwrapTx = await contracts.woort.withdraw(parsedAmount)
       await unwrapTx.wait()
       
@@ -769,7 +772,7 @@ export function useInfraFi() {
   const borrowNative = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
 
-    setTxState({ isLoading: true, error: null, operation: 'borrow' })
+    setTxState({ isLoading: true, error: null, operation: 'borrow', currentStep: 1, totalSteps: 2, stepDescription: 'Borrowing WOORT from vault' })
     try {
       const parsedAmount = parseBalance(amount)
       
@@ -778,6 +781,7 @@ export function useInfraFi() {
       await borrowTx.wait()
       
       // Step 2: Unwrap WOORT to native OORT
+      setTxState({ isLoading: true, error: null, operation: 'borrow', currentStep: 2, totalSteps: 2, stepDescription: 'Unwrapping WOORT to OORT' })
       const unwrapTx = await contracts.woort.withdraw(parsedAmount)
       await unwrapTx.wait()
       
@@ -799,7 +803,7 @@ export function useInfraFi() {
   const repayNative = async (amount: string) => {
     if (!contracts.nodeVault || !contracts.woort || !amount) return
 
-    setTxState({ isLoading: true, error: null, operation: 'repay' })
+    setTxState({ isLoading: true, error: null, operation: 'repay', currentStep: 1, totalSteps: 3, stepDescription: 'Wrapping OORT to WOORT' })
     try {
       const parsedAmount = parseBalance(amount)
       
@@ -808,10 +812,12 @@ export function useInfraFi() {
       await wrapTx.wait()
       
       // Step 2: Approve vault to spend WOORT
+      setTxState({ isLoading: true, error: null, operation: 'repay', currentStep: 2, totalSteps: 3, stepDescription: 'Approving vault to spend WOORT' })
       const approveTx = await contracts.woort.approve(contracts.nodeVault.target, parsedAmount)
       await approveTx.wait()
       
       // Step 3: Repay with WOORT
+      setTxState({ isLoading: true, error: null, operation: 'repay', currentStep: 3, totalSteps: 3, stepDescription: 'Repaying loan with WOORT' })
       const repayTx = await contracts.nodeVault.repay(parsedAmount)
       await repayTx.wait()
       

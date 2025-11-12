@@ -57,6 +57,9 @@ export interface TransactionState {
   isLoading: boolean;
   error: string | null;
   operation?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'depositNodes' | 'withdrawNodes' | null;
+  currentStep?: number;  // Current step number (1-based)
+  totalSteps?: number;   // Total number of steps
+  stepDescription?: string;  // Description of current step
 }
 
 export type TransactionFunction = (amount: string) => Promise<void>;

@@ -105,6 +105,26 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
         </div>
       )}
 
+      {/* Transaction Progress Bar */}
+      {txState.isLoading && txState.currentStep && txState.totalSteps && (
+        <div className="mb-4 p-4 bg-blue-900/20 border border-blue-500/20 rounded-lg">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-blue-300 font-medium">{txState.stepDescription}</span>
+              <span className="text-blue-400">
+                Step {txState.currentStep} of {txState.totalSteps}
+              </span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-primary-500 to-primary-400 h-full rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(txState.currentStep / txState.totalSteps) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'supply' ? (
         /* Supply Tab */
         <div className="space-y-6">
