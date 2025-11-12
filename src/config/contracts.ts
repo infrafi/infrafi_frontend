@@ -1,11 +1,11 @@
 // Contract addresses and configuration for InfraFi protocol
-// 🚀 UPDATED: October 29, 2025 - OORT Testnet Redeployment (Latest)
+// 🚀 UPDATED: November 12, 2025 - OORT Testnet Redeployment (75% Max LTV)
 export const CONTRACT_ADDRESSES = {
-  NodeVaultUpgradeable: '0xdE642341Fc61E92bfbae7f2299C24651ceF087Cf', // ✅ Testnet: Latest deployment - With revenue sharing (15/5/80)
+  NodeVaultUpgradeable: '0x3479ccd3bF469a9DE57f2ddE8e63fb56B105D371', // ✅ Testnet: Latest deployment - With 75% Max LTV
   WOORT: '0x0809f1dC272F42F96F0B06cE5fFCEC97cB9FA82d',
-  ProtocolAdapterRegistry: '0x66756b707B888e02DE08f373183AF08ED5803F18', // ✅ Testnet: Latest deployment - With deployer tracking
-  NodeProxyManager: '0x5bC1666b5EDDbC6487310C27F6fBbF1E53ad4739', // ✅ Testnet: Latest deployment - Proxy manager
-  OortProtocolAdapter: '0x0E7219a485555fD34e1538f5a859b20cf15d6f3A', // ✅ Testnet: Latest deployment - OORT adapter
+  ProtocolAdapterRegistry: '0x298E2E3F0d036B10Be20743c9F4E0F08B5C70E74', // ✅ Testnet: Latest deployment
+  NodeProxyManager: '0x9d6BE915fe9376776809B93217C5Cc3Ef0DC5270', // ✅ Testnet: Latest deployment
+  OortProtocolAdapter: '0x6b26D22aDE5cc0CfC0B95D2a6dcaceF25433835B', // ✅ Testnet: Latest deployment
   OortNodeContract: '0xA97E5185DC116588A85197f446Aa87cE558d254C', // ✅ Testnet: OORT node contract
 } as const;
 
