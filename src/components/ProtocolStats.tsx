@@ -42,7 +42,7 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
               </div>
             </div>
             <p className="text-2xl font-bold text-white">
-              {protocolStats ? formatTokenAmount(protocolStats.totalSupplied) : '0.000000000000000000'}
+              {protocolStats ? formatTokenAmount(protocolStats.totalSupplied, 18, 8) : '0.00000000'}
             </p>
           </div>
         </div>
@@ -66,7 +66,7 @@ export function ProtocolStats({ protocolStats, isLoading }: ProtocolStatsProps) 
               </div>
             </div>
             <p className="text-2xl font-bold text-white">
-              {protocolStats ? formatTokenAmount(protocolStats.totalDebt) : '0.000000000000000000'}
+              {protocolStats ? formatTokenAmount(protocolStats.totalDebt, 18, 8) : '0.00000000'}
             </p>
           </div>
         </div>

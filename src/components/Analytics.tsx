@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import { useDailySnapshots, useProtocolStats, useEventsInRange, useInterestRateHistory } from '@/hooks/useSubgraph'
 import { 
-  formatTVLChartData, 
+  formatTVLChartData,
+  formatTVLFromRateSnapshots, 
   formatAPYChartData, 
   formatActivityChartData, 
   formatVolumeChartData,
@@ -55,8 +56,9 @@ export function Analytics() {
     )
   }
 
-  // Format historical data and append current state
-  const tvlData = formatTVLChartData(snapshots, currentProtocol)
+  // Use high-frequency rate snapshots for TVL chart (same data source as interest rate history)
+  // This ensures both charts show the same time range and update in real-time
+  const tvlData = formatTVLFromRateSnapshots(rateSnapshots, startTime)
   
   // Use high-frequency rate snapshots for APY chart (better event matching)
   // Filter to only show data within the selected time range

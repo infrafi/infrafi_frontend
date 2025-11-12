@@ -6,7 +6,7 @@ function basisPointsToPercentage(basisPoints: number): number {
 }
 
 /**
- * Format daily snapshots for TVL chart
+ * Format daily snapshots for TVL chart (legacy)
  */
 export function formatTVLChartData(snapshots: any[], currentProtocol?: any) {
   if (!snapshots || snapshots.length === 0) {
@@ -65,6 +65,51 @@ export function formatTVLChartData(snapshots: any[], currentProtocol?: any) {
   }
   
   return historicalData
+}
+
+/**
+ * Format interest rate snapshots for TVL chart (high-frequency, real-time data)
+ * Uses the same data source as interest rate history for consistency
+ */
+export function formatTVLFromRateSnapshots(rateSnapshots: any[], startTime: number) {
+  if (!rateSnapshots || rateSnapshots.length === 0) {
+    return []
+  }
+  
+  return rateSnapshots
+    .filter((snapshot) => {
+      const snapshotTime = parseInt(snapshot.timestamp)
+      return snapshotTime >= startTime
+    })
+    .map((snapshot) => {
+      try {
+        const timestamp = parseInt(snapshot.timestamp)
+        // Use formatTokenAmount with 8 decimals to maintain precision
+        // Convert to Number only after truncation to avoid precision loss
+        const suppliedStr = formatTokenAmount(BigInt(snapshot.totalLiquidity || '0'), 18, 8)
+        const borrowedStr = formatTokenAmount(BigInt(snapshot.totalDebt || '0'), 18, 8)
+        
+        return {
+          // Include time in date label to differentiate multiple snapshots on same day
+          date: new Date(timestamp * 1000).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          timestamp: timestamp,
+          totalSupplied: parseFloat(suppliedStr),
+          totalBorrowed: parseFloat(borrowedStr),
+          // Note: Collateral value not available in interest rate snapshots
+          totalCollateral: 0,
+        }
+      } catch (error) {
+        console.error('Error formatting TVL from rate snapshot:', error, snapshot)
+        return null
+      }
+    })
+    .filter((item) => item !== null)
+    .reverse() // Oldest to newest for chart
 }
 
 /**

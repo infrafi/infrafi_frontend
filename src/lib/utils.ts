@@ -123,9 +123,10 @@ export function formatUtilization(basisPoints: number): string {
 }
 
 // Format token amounts with full precision (contract returns wei: 18 decimals)
-export function formatTokenAmount(value: any, decimals: number = 18): string {
+export function formatTokenAmount(value: any, decimals: number = 18, displayDecimals?: number): string {
   if (value === undefined || value === null) {
-    return "0.000000000000000000";
+    const zeros = displayDecimals ? '0'.repeat(displayDecimals) : '000000000000000000';
+    return displayDecimals ? `0.${zeros}` : "0.000000000000000000";
   }
   
   let bigIntValue: bigint;
@@ -136,22 +137,31 @@ export function formatTokenAmount(value: any, decimals: number = 18): string {
       bigIntValue = BigInt(value);
     } else {
       console.warn('formatTokenAmount: Invalid value type', typeof value, value);
-      return "0.000000000000000000";
+      const zeros = displayDecimals ? '0'.repeat(displayDecimals) : '000000000000000000';
+      return displayDecimals ? `0.${zeros}` : "0.000000000000000000";
     }
   } catch (error) {
     console.warn('formatTokenAmount: Failed to convert to BigInt', value, error);
-    return "0.000000000000000000";
+    const zeros = displayDecimals ? '0'.repeat(displayDecimals) : '000000000000000000';
+    return displayDecimals ? `0.${zeros}` : "0.000000000000000000";
   }
 
   const divisor = BigInt(10 ** decimals);
   const whole = bigIntValue / divisor;
   const fraction = bigIntValue % divisor;
   
-  if (fraction === 0n) {
-    return `${whole}.000000000000000000`;
+  let fractionStr = fraction.toString().padStart(decimals, '0');
+  
+  // If displayDecimals is specified, truncate to that precision
+  if (displayDecimals !== undefined && displayDecimals < decimals) {
+    fractionStr = fractionStr.substring(0, displayDecimals);
   }
   
-  const fractionStr = fraction.toString().padStart(decimals, '0');
+  if (fraction === 0n) {
+    const zeros = displayDecimals ? '0'.repeat(displayDecimals) : '000000000000000000';
+    return `${whole}.${zeros}`;
+  }
+  
   return `${whole}.${fractionStr}`;
 }
 

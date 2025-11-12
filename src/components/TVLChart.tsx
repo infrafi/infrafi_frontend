@@ -5,10 +5,28 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 interface TVLChartProps {
   data: Array<{
     date: string
+    timestamp?: number
     totalSupplied: number
     totalBorrowed: number
     totalCollateral: number
   }>
+}
+
+// Custom tooltip component
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl">
+        <p className="text-white font-semibold mb-2">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} style={{ color: entry.color }} className="text-sm">
+            {entry.name}: {entry.value.toFixed(8)} WOORT
+          </p>
+        ))}
+      </div>
+    )
+  }
+  return null
 }
 
 export function TVLChart({ data }: TVLChartProps) {
@@ -36,15 +54,7 @@ export function TVLChart({ data }: TVLChartProps) {
             style={{ fontSize: '12px' }}
             tickFormatter={(value) => `${value.toFixed(0)} WOORT`}
           />
-          <Tooltip 
-            contentStyle={{ 
-              backgroundColor: '#1F2937', 
-              border: '1px solid #374151',
-              borderRadius: '0.5rem',
-              color: '#F3F4F6'
-            }}
-            formatter={(value: number) => [`${value.toFixed(8)} WOORT`, '']}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Legend 
             wrapperStyle={{ color: '#9CA3AF' }}
           />
