@@ -27,7 +27,7 @@ export interface ProtocolStats {
 }
 
 export interface UserPosition {
-  woortBalance: bigint;
+  oortBalance: bigint;  // Native OORT balance
   supplied: bigint;
   supplyInterest: bigint;  // Accrued interest from lending
   borrowed: bigint;

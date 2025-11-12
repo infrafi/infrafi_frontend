@@ -129,15 +129,15 @@ export function Dashboard() {
                         userPosition={infraFi.userPosition}
                         protocolStats={infraFi.protocolStats}
                         txState={infraFi.txState}
-                        onSupply={infraFi.supply}
-                        onWithdraw={infraFi.withdraw}
+                        onSupply={infraFi.supplyNative}
+                        onWithdraw={infraFi.withdrawNative}
                       />
                       <BorrowRepay 
                         userPosition={infraFi.userPosition}
                         protocolStats={infraFi.protocolStats}
                         txState={infraFi.txState}
-                        onBorrow={infraFi.borrow}
-                        onRepay={infraFi.repay}
+                        onBorrow={infraFi.borrowNative}
+                        onRepay={infraFi.repayNative}
                       />
                     </div>
                   </CollapsibleSection>

@@ -113,9 +113,9 @@ export function UserPosition({ userPosition, protocolStats, isLoading }: UserPos
             <Wallet className="w-6 h-6 text-white" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-400">WOORT Balance</p>
+            <p className="text-sm font-medium text-gray-400">OORT Balance</p>
             <p className="text-2xl font-bold text-white">
-              {userPosition ? formatBalance(userPosition.woortBalance) : '0'}
+              {userPosition ? formatBalance(userPosition.oortBalance) : '0'}
             </p>
             <p className="text-xs text-gray-500">Available</p>
           </div>

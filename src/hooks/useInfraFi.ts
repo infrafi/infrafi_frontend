@@ -225,7 +225,7 @@ export function useInfraFi() {
     setIsLoading(prev => ({ ...prev, userPosition: true }))
     
     // Use individual try-catch blocks for each function to handle missing methods gracefully
-    let woortBalance = BigInt(0)
+    let oortBalance = BigInt(0) // Native OORT balance
     let supplied = BigInt(0)
     let supplyInterest = BigInt(0)
     let borrowed = BigInt(0)
@@ -233,10 +233,16 @@ export function useInfraFi() {
     let maxBorrowAmount = BigInt(0)
 
     try {
-      woortBalance = BigInt(await contracts.woort.balanceOf(wallet.address))
-      console.log('✅ WOORT balanceOf():', woortBalance.toString())
+      // Get native OORT balance instead of WOORT
+      // Use the contract's provider to query balance
+      const provider = contracts.nodeVault.runner?.provider
+      if (provider && 'getBalance' in provider) {
+        const balance = await provider.getBalance(wallet.address)
+        oortBalance = BigInt(balance.toString())
+        console.log('✅ Native OORT balance:', oortBalance.toString())
+      }
     } catch (error) {
-      console.warn('WOORT balanceOf() function failed:', error)
+      console.warn('Failed to get native OORT balance:', error)
     }
 
     try {
@@ -343,8 +349,29 @@ export function useInfraFi() {
     }
 
     try {
-      maxBorrowAmount = BigInt(await contracts.nodeVault.getMaxBorrowAmount(wallet.address))
-      console.log('✅ getMaxBorrowAmount():', maxBorrowAmount.toString())
+      // Get collateral-based max borrow amount
+      const collateralBasedMax = BigInt(await contracts.nodeVault.getMaxBorrowAmount(wallet.address))
+      console.log('✅ Collateral-based max borrow:', collateralBasedMax.toString())
+      
+      // Get available pool liquidity
+      let availableLiquidity = BigInt(0)
+      try {
+        const totalSupplied = BigInt(await contracts.nodeVault.getTotalSupplied())
+        const totalDebt = BigInt(await contracts.nodeVault.getTotalDebt())
+        availableLiquidity = totalSupplied - totalDebt
+        console.log('✅ Available pool liquidity:', availableLiquidity.toString())
+      } catch (liquidityError) {
+        console.warn('Failed to get pool liquidity, using collateral-based max only:', liquidityError)
+        availableLiquidity = collateralBasedMax // Fallback to collateral-based if liquidity check fails
+      }
+      
+      // Take the minimum of collateral-based max and available liquidity
+      maxBorrowAmount = collateralBasedMax < availableLiquidity ? collateralBasedMax : availableLiquidity
+      console.log('✅ Final max borrow amount:', maxBorrowAmount.toString(), {
+        collateralBasedMax: collateralBasedMax.toString(),
+        availableLiquidity: availableLiquidity.toString(),
+        limitedBy: collateralBasedMax < availableLiquidity ? 'collateral' : 'liquidity'
+      })
     } catch (error) {
       console.warn('getMaxBorrowAmount() function failed:', error)
     }
@@ -373,7 +400,7 @@ export function useInfraFi() {
     }
 
     setUserPosition({
-      woortBalance,
+      oortBalance,
       supplied,
       supplyInterest,
       borrowed,
@@ -619,6 +646,71 @@ export function useInfraFi() {
     setTxState({ isLoading: false, error: null, operation: null })
   }
 
+  // Native OORT wrapper functions (auto-wrap/unwrap)
+  const supplyNative = async (amount: string) => {
+    if (!contracts.nodeVault || !contracts.woort || !amount) return
+
+    setTxState({ isLoading: true, error: null, operation: 'supply' })
+    try {
+      const parsedAmount = parseBalance(amount)
+      
+      // Step 1: Wrap native OORT to WOORT
+      const wrapTx = await contracts.woort.deposit({ value: parsedAmount })
+      await wrapTx.wait()
+      
+      // Step 2: Approve vault to spend WOORT
+      const approveTx = await contracts.woort.approve(contracts.nodeVault.target, parsedAmount)
+      await approveTx.wait()
+      
+      // Step 3: Supply WOORT to vault
+      const supplyTx = await contracts.nodeVault.supply(parsedAmount)
+      await supplyTx.wait()
+      
+      // Refresh data
+      await Promise.all([fetchProtocolStats(), fetchUserPosition()])
+    } catch (error: any) {
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
+      return
+    }
+    
+    setTxState({ isLoading: false, error: null, operation: null })
+  }
+
+  const withdrawNative = async (amount: string) => {
+    if (!contracts.nodeVault || !contracts.woort || !amount) return
+
+    setTxState({ isLoading: true, error: null, operation: 'withdraw' })
+    try {
+      const parsedAmount = parseBalance(amount)
+      
+      // Step 1: Withdraw WOORT from vault
+      const withdrawTx = await contracts.nodeVault.withdraw(parsedAmount)
+      await withdrawTx.wait()
+      
+      // Step 2: Unwrap WOORT to native OORT
+      const unwrapTx = await contracts.woort.withdraw(parsedAmount)
+      await unwrapTx.wait()
+      
+      // Refresh data
+      await Promise.all([fetchProtocolStats(), fetchUserPosition()])
+    } catch (error: any) {
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
+      return
+    }
+    
+    setTxState({ isLoading: false, error: null, operation: null })
+  }
+
   const borrow = async (amount: string) => {
     if (!contracts.nodeVault || !amount) return
 
@@ -659,6 +751,71 @@ export function useInfraFi() {
       const tx = await contracts.nodeVault.repay(parsedAmount)
       await tx.wait()
       
+      await Promise.all([fetchProtocolStats(), fetchUserPosition()])
+    } catch (error: any) {
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
+      return
+    }
+    
+    setTxState({ isLoading: false, error: null, operation: null })
+  }
+
+  // Native OORT borrow/repay functions (auto-wrap/unwrap)
+  const borrowNative = async (amount: string) => {
+    if (!contracts.nodeVault || !contracts.woort || !amount) return
+
+    setTxState({ isLoading: true, error: null, operation: 'borrow' })
+    try {
+      const parsedAmount = parseBalance(amount)
+      
+      // Step 1: Borrow WOORT from vault
+      const borrowTx = await contracts.nodeVault.borrow(parsedAmount)
+      await borrowTx.wait()
+      
+      // Step 2: Unwrap WOORT to native OORT
+      const unwrapTx = await contracts.woort.withdraw(parsedAmount)
+      await unwrapTx.wait()
+      
+      // Refresh data
+      await Promise.all([fetchProtocolStats(), fetchUserPosition()])
+    } catch (error: any) {
+      // Don't show error if user rejected the transaction
+      if (isUserRejection(error)) {
+        setTxState({ isLoading: false, error: null, operation: null })
+        return
+      }
+      setTxState({ isLoading: false, error: error.message || 'Transaction failed', operation: null })
+      return
+    }
+    
+    setTxState({ isLoading: false, error: null, operation: null })
+  }
+
+  const repayNative = async (amount: string) => {
+    if (!contracts.nodeVault || !contracts.woort || !amount) return
+
+    setTxState({ isLoading: true, error: null, operation: 'repay' })
+    try {
+      const parsedAmount = parseBalance(amount)
+      
+      // Step 1: Wrap native OORT to WOORT
+      const wrapTx = await contracts.woort.deposit({ value: parsedAmount })
+      await wrapTx.wait()
+      
+      // Step 2: Approve vault to spend WOORT
+      const approveTx = await contracts.woort.approve(contracts.nodeVault.target, parsedAmount)
+      await approveTx.wait()
+      
+      // Step 3: Repay with WOORT
+      const repayTx = await contracts.nodeVault.repay(parsedAmount)
+      await repayTx.wait()
+      
+      // Refresh data
       await Promise.all([fetchProtocolStats(), fetchUserPosition()])
     } catch (error: any) {
       // Don't show error if user rejected the transaction
@@ -823,6 +980,11 @@ export function useInfraFi() {
     repay,
     depositNodes,
     withdrawNodes,
+    // Native OORT actions (auto-wrap/unwrap)
+    supplyNative,
+    withdrawNative,
+    borrowNative,
+    repayNative,
     // Manual refresh functions
     refreshProtocolStats: fetchProtocolStats,
     refreshUserPosition: fetchUserPosition,

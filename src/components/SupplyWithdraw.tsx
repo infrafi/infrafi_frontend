@@ -20,7 +20,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
 
   const supplyValidation = validateAmount(
     supplyAmount, 
-    userPosition?.woortBalance || BigInt(0)
+    userPosition?.oortBalance || BigInt(0)
   )
   
   // Calculate total liquidity (supplied + interest earned)
@@ -49,7 +49,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
 
   const setMaxSupply = () => {
     if (userPosition) {
-      setSupplyAmount(bigIntToDecimal(userPosition.woortBalance))
+      setSupplyAmount(bigIntToDecimal(userPosition.oortBalance))
     }
   }
 
@@ -62,7 +62,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
   return (
     <div className="card">
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-white mb-4">Supply & Withdraw WOORT</h3>
+        <h3 className="text-xl font-semibold text-white mb-4">Supply & Withdraw OORT</h3>
         
         {/* Tab Navigation */}
         <div className="flex space-x-1 bg-gray-700 rounded-lg p-1">
@@ -120,12 +120,12 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
                   className="input pr-20"
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <span className="text-sm text-gray-400 font-medium">WOORT</span>
+                  <span className="text-sm text-gray-400 font-medium">OORT</span>
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-400">
-                  Balance: {userPosition ? formatBalance(userPosition.woortBalance) : '0'} WOORT
+                  Balance: {userPosition ? formatBalance(userPosition.oortBalance) : '0'} OORT
                 </span>
                 <button
                   onClick={setMaxSupply}
@@ -147,7 +147,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
             disabled={!supplyValidation.isValid || !supplyAmount || txState.isLoading}
             className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {txState.isLoading && txState.operation === 'supply' ? 'Supplying...' : 'Supply WOORT'}
+            {txState.isLoading && txState.operation === 'supply' ? 'Supplying...' : 'Supply OORT'}
           </button>
         </div>
       ) : (
@@ -165,12 +165,12 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
                   className="input pr-20"
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <span className="text-sm text-gray-400 font-medium">WOORT</span>
+                  <span className="text-sm text-gray-400 font-medium">OORT</span>
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-400">
-                  Supplied: {userPosition ? formatBalance(totalLiquidity) : '0'} WOORT
+                  Supplied: {userPosition ? formatBalance(totalLiquidity) : '0'} OORT
                 </span>
                 <button
                   onClick={setMaxWithdraw}
@@ -192,7 +192,7 @@ export function SupplyWithdraw({ userPosition, protocolStats, txState, onSupply,
             disabled={!withdrawValidation.isValid || !withdrawAmount || txState.isLoading}
             className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {txState.isLoading && txState.operation === 'withdraw' ? 'Withdrawing...' : 'Withdraw WOORT'}
+            {txState.isLoading && txState.operation === 'withdraw' ? 'Withdrawing...' : 'Withdraw OORT'}
           </button>
         </div>
       )}
