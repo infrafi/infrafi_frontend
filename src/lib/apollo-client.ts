@@ -1,7 +1,10 @@
 import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client'
 
-// GraphQL endpoint for InfraFi subgraph on OORT testnet
-const SUBGRAPH_URL = 'http://34.150.61.246:8000/subgraphs/name/infrafi/infrafi-testnet'
+// GraphQL endpoint for InfraFi subgraph
+// Use environment variable with fallback to OORT hosted subgraph (port 443 - standard HTTPS)
+const SUBGRAPH_URL = process.env.NEXT_PUBLIC_SUBGRAPH_URL || 'https://infrafi-subgraph.oortech.com/subgraphs/name/infrafi/infrafi-testnet'
+
+console.log('🔗 Using subgraph URL:', SUBGRAPH_URL)
 
 const httpLink = new HttpLink({
   uri: SUBGRAPH_URL,
