@@ -82,13 +82,27 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   }
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
-      alert('Please install MetaMask!')
+    // Check for available wallet providers (OKX, MetaMask, etc.)
+    let ethereumProvider = null
+    
+    // Priority: OKX wallet, then window.ethereum (MetaMask or others)
+    if (typeof window !== 'undefined') {
+      if (window.okxwallet) {
+        ethereumProvider = window.okxwallet
+        console.log('🦊 Using OKX Wallet')
+      } else if (window.ethereum) {
+        ethereumProvider = window.ethereum
+        console.log('🦊 Using Ethereum provider (MetaMask or compatible)')
+      }
+    }
+    
+    if (!ethereumProvider) {
+      alert('Please install a Web3 wallet (MetaMask, OKX Wallet, etc.)!')
       return
     }
 
     try {
-      const provider = new BrowserProvider(window.ethereum)
+      const provider = new BrowserProvider(ethereumProvider)
       const accounts = await provider.send('eth_requestAccounts', [])
       const network = await provider.getNetwork()
       
@@ -123,18 +137,20 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   }
 
   const switchNetwork = async () => {
-    if (!window.ethereum) return
+    // Get available wallet provider
+    const ethereumProvider = window.okxwallet || window.ethereum
+    if (!ethereumProvider) return
 
     try {
-      await window.ethereum.request({
+      await ethereumProvider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${OORT_NETWORK.chainId.toString(16)}` }],
       })
     } catch (error: any) {
       if (error.code === 4902) {
-        // Network not added to MetaMask, add it
+        // Network not added to wallet, add it
         try {
-          await window.ethereum.request({
+          await ethereumProvider.request({
             method: 'wallet_addEthereumChain',
             params: [{
               chainId: `0x${OORT_NETWORK.chainId.toString(16)}`,
@@ -160,10 +176,12 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   // Auto-connect on page load
   useEffect(() => {
     const autoConnect = async () => {
-      if (!window.ethereum) return
+      // Check for available wallet provider
+      const ethereumProvider = window.okxwallet || window.ethereum
+      if (!ethereumProvider) return
 
       try {
-        const provider = new BrowserProvider(window.ethereum)
+        const provider = new BrowserProvider(ethereumProvider)
         const accounts = await provider.listAccounts()
         
         if (accounts.length > 0) {
@@ -192,7 +210,9 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
   // Listen for account/network changes
   useEffect(() => {
-    if (!window.ethereum) return
+    // Get available wallet provider
+    const ethereumProvider = window.okxwallet || window.ethereum
+    if (!ethereumProvider) return
 
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
@@ -207,13 +227,13 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       window.location.reload()
     }
 
-    window.ethereum.on('accountsChanged', handleAccountsChanged)
-    window.ethereum.on('chainChanged', handleChainChanged)
+    ethereumProvider.on('accountsChanged', handleAccountsChanged)
+    ethereumProvider.on('chainChanged', handleChainChanged)
 
     return () => {
-      if (window.ethereum?.removeListener) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
-        window.ethereum.removeListener('chainChanged', handleChainChanged)
+      if (ethereumProvider?.removeListener) {
+        ethereumProvider.removeListener('accountsChanged', handleAccountsChanged)
+        ethereumProvider.removeListener('chainChanged', handleChainChanged)
       }
     }
   }, [])
